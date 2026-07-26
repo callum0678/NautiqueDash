@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nelly the Nautique Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --panel-bg: rgba(22, 24, 30, 0.95);
+            --card-bg: #1c1e24;
+            --nautique-orange: #ff5500;
+            --orange-glow: rgba(255, 85, 0, 0.35);
+            --text-main: #ffffff;
+            --text-muted: #7e8494;
+            --danger-red: #ff3b30;
+            --connected-green: #00ff66;
+        }
+
+        body { 
+            font-family: 'Inter', Arial, sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+            text-align: center; 
+            padding: 15px; 
+            margin: 0;
+            background-image: radial-gradient(circle at top, #1e1b18 0%, var(--bg-color) 70%);
+            touch-action: manipulation;
+        }
+
+        .dashboard { 
+            max-width: 460px; 
+            margin: 10px auto; 
+            background: var(--panel-bg); 
+            padding: 25px 20px; 
+            border-radius: 32px; 
+            border: 1px solid rgba(255, 85, 0, 0.2); 
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 85, 0, 0.05);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        h1 { 
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem; 
+            margin: 0 0 2px 0; 
+            font-weight: 900; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: linear-gradient(180deg, #fff 0%, #a0a0a0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle { 
+            color: var(--nautique-orange); 
+            font-size: 0.8rem; 
+            text-transform: uppercase; 
+            letter-spacing: 3px; 
+            font-weight: 800; 
+            margin-bottom: 15px; 
+            text-shadow: 0 0 10px var(--orange-glow);
+        }
+
+        .bt-connection-bar {
+            margin-bottom: 20px;
+        }
+
+        .btn-connect {
+            background: linear-gradient(135deg, #ff5500 0%, #d44400 100%);
+            color: #ffffff;
+            width: 100%;
+            padding: 12px;
+            font-size: 0.85rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(255, 85, 0, 0.3);
+            border: none;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-connect.connected {
+            background: #1c1e24;
+            color: var(--connected-green);
+            border: 1px solid var(--connected-green);
+            box-shadow: 0 0 10px rgba(0, 255, 102, 0.2);
+        }
+
+        .speed-gauge-container {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 0 auto 25px auto;
+        }
+
+        .speed-svg { transform: rotate(-90deg); }
+        .speed-track { fill: none; stroke: #17191f; stroke-width: 14; }
+        .speed-bar {
+            fill: none;
+            stroke: var(--nautique-orange);
+            stroke-width: 14;
+            stroke-linecap: round;
+            stroke-dasharray: 565.48;
+            stroke-dashoffset: 565.48;
+            transition: stroke-dashoffset 0.3s ease;
+            filter: drop-shadow(0 0 8px var(--nautique-orange));
+        }
+
+        .speed-text-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .speed-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4.5rem;
+            font-weight: 900;
+            line-height: 1;
+            color: #ffffff;
+        }
+
+        .speed-unit {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .grid-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 25px 0 10px 0;
+            padding: 0 5px;
+        }
+
+        .section-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 800;
+        }
+
+        .btn-edit {
+            background: var(--nautique-orange);
+            color: #ffffff;
+            font-size: 0.75rem;
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(255, 85, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+        .btn-edit.active {
+            background: #ffffff;
+            color: var(--bg-color);
+        }
+
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 15px; 
+            margin-bottom: 25px;
+            min-height: 50px;
+        }
+
+        .gauge-card { 
+            background: var(--card-bg); 
+            padding: 16px 12px; 
+            border-radius: 18px; 
+            border: 1px solid rgba(255,255,255,0.03);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+        }
+
+        .card-label { 
+            color: var(--text-muted); 
+            font-size: 0.75rem; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            font-weight: 600;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-val { 
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.35rem; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            margin-bottom: 8px;
+            white-space: nowrap;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 5px;
+            background: #121317;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--nautique-orange);
+            width: 0%;
+            border-radius: 3px;
+            box-shadow: 0 0 6px var(--nautique-orange);
+            transition: width 0.3s ease;
+        }
+
+        .edit-mode .gauge-card {
+            border: 1px dashed var(--nautique-orange);
+            cursor: move;
+            animation: gentleWobble 0.3s infinite alternate;
+        }
+        .edit-mode .gauge-card::after {
+            content: '☰';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: var(--nautique-orange);
+            font-size: 0.8rem;
+        }
+
+        .card-delete-btn {
+            display: none;
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: var(--danger-red);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            cursor: pointer;
+            z-index: 10;
+        }
+        .edit-mode .card-delete-btn {
+            display: block;
+        }
+        
+        .gauge-card.dragging {
+            opacity: 0.5;
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+
+        @keyframes gentleWobble {
+            0% { transform: rotate(-0.5deg); }
+            100% { transform: rotate(0.5deg); }
+        }
+
+        .add-item-panel {
+            display: none;
+            background: #121317;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 18px;
+            padding: 15px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        .add-item-panel select {
+            width: 100%;
+            padding: 12px;
+            background: var(--card-bg);
+            border: 1px solid #2c2f36;
+            color: white;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            outline: none;
+        }
+
+        .control-panel { 
+            margin-top: 25px; 
+            padding-top: 20px; 
+            border-top: 1px solid rgba(255,255,255,0.05); 
+            text-align: left; 
+        }
+
+        .flex-group { display: flex; justify-content: space-between; margin-top: 10px; gap: 10px; align-items: center; }
+        
+        input[type="number"] { 
+            padding: 14px; 
+            font-size: 1rem; 
+            flex-grow: 1; 
+            border-radius: 14px; 
+            border: 1px solid #2c2f36; 
+            background: #121317; 
+            color: #ffffff; 
+            font-weight: 600;
+            text-align: center; 
+            outline: none;
+        }
+
+        button { 
+            padding: 14px 20px; 
+            font-size: 0.95rem; 
+            border: none; 
+            border-radius: 14px; 
+            font-weight: 800; 
+            cursor: pointer; 
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn-orange { 
+            background: var(--nautique-orange); 
+            color: #ffffff; 
+            box-shadow: 0 4px 15px rgba(255, 85, 0, 0.3);
+        }
+        
+        #gps-status {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: -10px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <h1>Nelly the Nautique</h1>
+        <div class="subtitle">Multi-Telemetry Hub</div>
+
+        <div class="bt-connection-bar">
+            <button id="bt-btn" class="btn-connect" onclick="toggleBluetoothConnection()">Pair Bluetooth Device</button>
+        </div>
+        
+        <div id="gps-status">GPS: DISCONNECTED</div>
+
+        <div class="speed-gauge-container">
+            <svg class="speed-svg" width="220" height="220">
+                <circle class="speed-track" cx="110" cy="110" r="90"></circle>
+                <circle id="speed-ring" class="speed-bar" cx="110" cy="110" r="90"></circle>
+            </svg>
+            <div class="speed-text-container">
+                <span id="speed-val" class="speed-value">0</span>
+                <span class="speed-unit">MPH</span>
+            </div>
+        </div>
+
+        <div class="grid-header-row">
+            <div class="section-label">Instruments</div>
+            <button class="btn-edit" id="edit-layout-btn" onclick="toggleEditMode()">Edit</button>
+        </div>
+
+        <div class="add-item-panel" id="add-item-box">
+            <div class="card-label">Add Instrument Option</div>
+            <select id="gauge-selector"></select>
+            <button class="btn-orange" style="padding: 10px; font-size:0.8rem; width:100%;" onclick="addGaugeNode()">Insert Into Grid</button>
+        </div>
+
+        <div class="grid-container" id="telemetry-grid"></div>
+
+        <div class="control-panel">
+            <div class="card-label" style="padding-left:4px;">Log Top-Off Fuel (Liters)</div>
+            <div class="flex-group">
+                <input type="number" id="refill-input" step="0.1" placeholder="Liters on receipt">
+                <button type="button" class="btn-orange" onclick="sendRefillCommand()">Reset Full</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GAUGE_REGISTRY = {
+            "fuel_mgmt":        { name: "Fuel Level",     unit: " L",    hasProgress: true,  isDefault: true },
+            "engine_rpm":       { name: "Engine Speed",   unit: " RPM",  hasProgress: true,  isDefault: true },
+            "throttle_percent": { name: "Throttle",       unit: "%",     hasProgress: true,  isDefault: true },
+            "run_time_seconds": { name: "Run Time",       unit: "",      hasProgress: false, isDefault: true },
+            "coolant_temp":     { name: "Coolant Temp",   unit: " °C",   hasProgress: false, isDefault: false },
+            "oil_pressure":     { name: "Engine Oil Press",unit: " kPa",  hasProgress: false, isDefault: false },
+            "battery_volt":     { name: "Battery Voltage",unit: " V",    hasProgress: false, isDefault: false },
+            "engine_hours":     { name: "Engine Hours",   unit: " hrs",  hasProgress: false, isDefault: false },
+            "intake_temp":      { name: "Intake Air Temp",unit: " °C",   hasProgress: false, isDefault: false },
+            "fuel_rate":        { name: "Fuel Rate",      unit: " L/h",  hasProgress: false, isDefault: false },
+            "j1939_fuel_level": { name: "Fuel Level (J)", unit: " %",    hasProgress: true,  isDefault: false },
+            "zo_handshake":     { name: "ZeroOff Sync",   unit: "",      hasProgress: false, isDefault: false },
+            "security_heart":   { name: "Security Auth",  unit: "",      hasProgress: false, isDefault: false },
+            "zo_speed":         { name: "ZeroOff SOG",    unit: " mph",  hasProgress: false, isDefault: false }
+        };
+
+        let activeLayout = [];
+        let isEditing = false;
+        const circumference = 2 * Math.PI * 90;
+
+        // Bluetooth variables
+        let port = null;
+        let reader = null;
+        let writer = null;
+        let isConnected = false;
+        let receiveBuffer = "";
+
+        function initLayoutConfig() {
+            let stored = localStorage.getItem('nautique_layout_v2');
+            if (stored) {
+                activeLayout = JSON.parse(stored);
+            } else {
+                activeLayout = Object.keys(GAUGE_REGISTRY).filter(k => GAUGE_REGISTRY[k].isDefault);
+                saveLayoutConfig();
+            }
+        }
+
+        function saveLayoutConfig() {
+            localStorage.setItem('nautique_layout_v2', JSON.stringify(activeLayout));
+        }
+
+        function renderGaugeGrid() {
+            const grid = document.getElementById('telemetry-grid');
+            grid.innerHTML = '';
+
+            activeLayout.forEach(key => {
+                const meta = GAUGE_REGISTRY[key];
+                if (!meta) return;
+
+                const card = document.createElement('div');
+                card.className = 'gauge-card';
+                card.setAttribute('draggable', isEditing ? 'true' : 'false');
+                card.setAttribute('data-key', key);
+
+                setupTouchDragDrop(card);
+
+                let progressHtml = meta.hasProgress ? `
+                    <div class="progress-track" style="margin-top:6px;">
+                        <div id="pb-${key}" class="progress-bar" style="width: 0%"></div>
+                    </div>` : '';
+
+                let subLabel = "Telemetry Data";
+                if(key === 'fuel_mgmt') subLabel = "-- / 80 L";
+                if(key === 'engine_rpm') subLabel = "Tachometer";
+                if(key === 'throttle_percent') subLabel = "Position Index";
+                if(key === 'run_time_seconds') subLabel = "Active Hours";
+
+                card.innerHTML = `
+                    <div class="card-label">${meta.name}</div>
+                    <div id="val-${key}" class="card-val">--</div>
+                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">${subLabel}</div>
+                    ${progressHtml}
+                    <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
+                `;
+                grid.appendChild(card);
+            });
+
+            const selector = document.getElementById('gauge-selector');
+            selector.innerHTML = '';
+            Object.keys(GAUGE_REGISTRY).forEach(key => {
+                if (!activeLayout.includes(key)) {
+                    selector.innerHTML += `<option value="${key}">${GAUGE_REGISTRY[key].name}</option>`;
+                }
+            });
+        }
+
+        function toggleEditMode() {
+            isEditing = !isEditing;
+            const btn = document.getElementById('edit-layout-btn');
+            const grid = document.getElementById('telemetry-grid');
+            const addPanel = document.getElementById('add-item-box');
+
+            if (isEditing) {
+                btn.innerText = "Done";
+                btn.classList.add('active');
+                grid.classList.add('edit-mode');
+                addPanel.style.display = 'block';
+                document.querySelectorAll('.gauge-card').forEach(c => c.setAttribute('draggable', 'true'));
+            } else {
+                btn.innerText = "Edit";
+                btn.classList.remove('active');
+                grid.classList.remove('edit-mode');
+                addPanel.style.display = 'none';
+                document.querySelectorAll('.gauge-card').forEach(c => c.setAttribute('draggable', 'false'));
+                saveLayoutConfig();
+            }
+        }
+
+        function addGaugeNode() {
+            const selector = document.getElementById('gauge-selector');
+            if (selector.value) {
+                activeLayout.push(selector.value);
+                renderGaugeGrid();
+                saveLayoutConfig();
+            }
+        }
+
+        function deleteGaugeNode(e, key) {
+            e.stopPropagation();
+            activeLayout = activeLayout.filter(k => k !== key);
+            renderGaugeGrid();
+            saveLayoutConfig();
+        }
+
+        let dragSrcElement = null;
+
+        function setupTouchDragDrop(el) {
+            el.addEventListener('dragstart', function(e) {
+                if(!isEditing) return e.preventDefault();
+                this.classList.add('dragging');
+                dragSrcElement = this;
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            el.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+                document.querySelectorAll('.gauge-card').forEach(c => c.classList.remove('over'));
+            });
+            el.addEventListener('dragover', function(e) {
+                if (e.preventDefault) e.preventDefault();
+                return false;
+            });
+            el.addEventListener('drop', function(e) {
+                if (e.stopPropagation) e.stopPropagation();
+                if (dragSrcElement !== this) {
+                    reorderInternalLayout(dragSrcElement.getAttribute('data-key'), this.getAttribute('data-key'));
+                }
+                return false;
+            });
+
+            el.addEventListener('touchstart', function(e) {
+                if(!isEditing) return;
+                dragSrcElement = this;
+                this.classList.add('dragging');
+            }, {passive: true});
+
+            el.addEventListener('touchmove', function(e) {
+                if(!isEditing || !dragSrcElement) return;
+                let touch = e.touches[0];
+                let target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (!target) return;
+                let cardTarget = target.closest('.gauge-card');
+                if(cardTarget && cardTarget !== dragSrcElement) {
+                    reorderInternalLayout(dragSrcElement.getAttribute('data-key'), cardTarget.getAttribute('data-key'));
+                }
+            }, {passive: true});
+
+            el.addEventListener('touchend', function() {
+                if(dragSrcElement) {
+                    dragSrcElement.classList.remove('dragging');
+                    dragSrcElement = null;
+                }
+            });
+        }
+
+        function reorderInternalLayout(srcKey, targetKey) {
+            let srcIdx = activeLayout.indexOf(srcKey);
+            let targetIdx = activeLayout.indexOf(targetKey);
+            if(srcIdx > -1 && targetIdx > -1) {
+                activeLayout.splice(srcIdx, 1);
+                activeLayout.splice(targetIdx, 0, srcKey);
+                renderGaugeGrid();
+            }
+        }
+
+        // --- Bluetooth Serial Handler ---
+        async function toggleBluetoothConnection() {
+            if (isConnected) {
+                disconnectBluetooth();
+                return;
+            }
+
+            try {
+                if (!('serial' in navigator)) {
+                    alert('Web Serial API is not supported in this browser. Please use Google Chrome or Edge.');
+                    return;
+                }
+
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+
+                const textDecoder = new TextDecoderStream();
+                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                reader = textDecoder.readable.getReader();
+
+                const textEncoder = new TextEncoderStream();
+                const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+                writer = textEncoder.writable.getWriter();
+
+                isConnected = true;
+                const btBtn = document.getElementById('bt-btn');
+                btBtn.innerText = "Bluetooth Connected";
+                btBtn.classList.add('connected');
+
+                readSerialData();
+            } catch (err) {
+                console.error("Bluetooth connection failed:", err);
+            }
+        }
+
+        async function disconnectBluetooth() {
+            if (reader) {
+                await reader.cancel();
+                reader = null;
+            }
+            if (writer) {
+                await writer.close();
+                writer = null;
+            }
+            if (port) {
+                await port.close();
+                port = null;
+            }
+            isConnected = false;
+            const btBtn = document.getElementById('bt-btn');
+            btBtn.innerText = "Pair Bluetooth Device";
+            btBtn.classList.remove('connected');
+
+            document.getElementById('gps-status').innerText = "GPS: DISCONNECTED";
+            document.getElementById('gps-status').style.color = "var(--text-muted)";
+        }
+
+        async function readSerialData() {
+            while (isConnected && reader) {
+                try {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        reader.releaseLock();
+                        break;
+                    }
+                    if (value) {
+                        receiveBuffer += value;
+                        let lines = receiveBuffer.split('\n');
+                        receiveBuffer = lines.pop(); // Keep incomplete line in buffer
+
+                        lines.forEach(line => {
+                            line = line.trim();
+                            if (line.startsWith('{') && line.endsWith('}')) {
+                                try {
+                                    const data = JSON.parse(line);
+                                    updateDashboard(data);
+                                } catch (e) { console.error("JSON Parsing Error", e); }
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error reading serial stream:", error);
+                    disconnectBluetooth();
+                    break;
+                }
+            }
+        }
+
+        async function sendRefillCommand() {
+            const input = document.getElementById('refill-input');
+            const liters = parseFloat(input.value);
+
+            if (isNaN(liters) || liters <= 0) {
+                alert("Please enter a valid number of liters.");
+                return;
+            }
+
+            if (!isConnected || !writer) {
+                alert("Bluetooth is not connected.");
+                return;
+            }
+
+            const command = `REFILL:${liters}\n`;
+            await writer.write(command);
+            input.value = '';
+            alert(`Sent Refill Command: ${liters} L`);
+        }
+
+        function updateDashboard(data) {
+            // Update Speedometer & GPS
+            const speedValEl = document.getElementById('speed-val');
+            const speedRing = document.getElementById('speed-ring');
+            const gpsStatus = document.getElementById('gps-status');
+
+            if (data.gps_valid) {
+                gpsStatus.innerText = "GPS: LOCKED (GARMIN)";
+                gpsStatus.style.color = "#00ff66";
+                let mph = data.gps_speed || 0;
+                speedValEl.innerText = Math.round(mph);
+                let speedPercent = Math.min(mph / 50, 1);
+                speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
+            } else {
+                gpsStatus.innerText = "GPS: SEARCHING...";
+                gpsStatus.style.color = "#ff8800";
+                speedValEl.innerText = "0";
+                speedRing.style.strokeDashoffset = circumference;
+            }
+
+            // Update Instrument Grid Items
+            activeLayout.forEach(key => {
+                const valEl = document.getElementById(`val-${key}`);
+                const pbEl = document.getElementById(`pb-${key}`);
+                const subEl = document.getElementById(`sub-${key}`);
+                if (!valEl) return;
+
+                let value = data[key];
+                let unit = GAUGE_REGISTRY[key].unit;
+
+                if (value === undefined || value === null) {
+                    valEl.innerText = "--";
+                    return;
+                }
+
+                if (key === 'fuel_mgmt') {
+                    valEl.innerText = data.fuel_percent + '%';
+                    if(subEl) subEl.innerText = data.fuel_liters + ' / 80 L';
+                    if(pbEl) pbEl.style.width = data.fuel_percent + '%';
+                } else if (key === 'run_time_seconds') {
+                    valEl.innerText = data.runtime;
+                } else {
+                    valEl.innerText = value + unit;
+                    
+                    if (pbEl) {
+                        let pct = 0;
+                        if (key === 'engine_rpm') pct = Math.min((value / 6000) * 100, 100);
+                        else if (key === 'throttle_percent' || key === 'j1939_fuel_level') pct = value;
+                        pbEl.style.width = pct + '%';
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initLayoutConfig();
+            renderGaugeGrid();
+        });
+    </script>
+</body>
+</html>
