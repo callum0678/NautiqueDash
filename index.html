@@ -480,7 +480,7 @@
             <button id="bt-btn" class="btn-connect" onclick="toggleBluetoothConnection()">Pair Bluetooth Device</button>
         </div>
         
-        <div id="gps-status">GPS: DEMO MODE (LOUGH ERNE)</div>
+        <div id="gps-status">GPS: CONNECTED</div>
 
         <div class="speed-gauge-container">
             <svg class="speed-svg" width="220" height="220">
@@ -488,7 +488,7 @@
                 <circle id="speed-ring" class="speed-bar" cx="110" cy="110" r="90"></circle>
             </svg>
             <div class="speed-text-container">
-                <span id="speed-val" class="speed-value">22</span>
+                <span id="speed-val" class="speed-value">0</span>
                 <span class="speed-unit">MPH</span>
             </div>
         </div>
@@ -522,7 +522,7 @@
 
         <!-- Historical Daily Journey Logs -->
         <div class="journey-logs-section">
-            <div class="section-label" style="margin-bottom: 12px;">Daily Journey Logs (Enniskillen)</div>
+            <div class="section-label" style="margin-bottom: 12px;">Daily Journey Logs</div>
             <div id="journey-logs-container">
                 <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">Loading journey records...</div>
             </div>
@@ -535,35 +535,20 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnc3Nwcnhia2xoa29zY3ZjbHV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTYyNzMsImV4cCI6MjEwMDgzMjI3M30.Bua2rEmjUkW-ZUJjAOyxFk95dXgQFxJNMG5CwbDffdc";  
         
         let supabaseClient = null;
-        if (typeof supabase !== 'undefined' && SUPABASE_URL !== "YOUR_SUPABASE_URL") {
+        if (typeof supabase !== 'undefined' && SUPABASE_URL) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         }
 
-        // --- 2. ENNISKILLEN / LOUGH ERNE DEMO DATA ---
-        const ENNISKILLEN_DEMO_LOGS = [
-            // Day 1: July 28 - Enniskillen Town River Cruise past Devenish Island
-            { created_at: "2026-07-28T10:15:00Z", latitude: 54.3468, longitude: -7.6392, fuel_liters: 76.0, fuel_percent: 95 },
-            { created_at: "2026-07-28T10:30:00Z", latitude: 54.3562, longitude: -7.6481, fuel_liters: 72.5, fuel_percent: 90 },
-            { created_at: "2026-07-28T11:00:00Z", latitude: 54.3711, longitude: -7.6580, fuel_liters: 68.0, fuel_percent: 85 },
-            { created_at: "2026-07-28T11:45:00Z", latitude: 54.3875, longitude: -7.6742, fuel_liters: 62.0, fuel_percent: 77 },
-            
-            // Day 2: July 27 - Wakeboard Run into Lower Lough Erne
-            { created_at: "2026-07-27T14:00:00Z", latitude: 54.3875, longitude: -7.6742, fuel_liters: 80.0, fuel_percent: 100 },
-            { created_at: "2026-07-27T14:45:00Z", latitude: 54.4120, longitude: -7.7025, fuel_liters: 68.5, fuel_percent: 85 },
-            { created_at: "2026-07-27T15:30:00Z", latitude: 54.4321, longitude: -7.7310, fuel_liters: 55.0, fuel_percent: 68 },
-            { created_at: "2026-07-27T16:15:00Z", latitude: 54.4080, longitude: -7.6980, fuel_liters: 46.0, fuel_percent: 57 }
-        ];
-
-        // --- 3. BLE & MAP SETUP ---
+        // --- 2. GAUGE REGISTRY & BLE/MAP SETUP ---
         const GAUGE_REGISTRY = {
-            "fuel_mgmt":       { name: "Fuel Level",       unit: " L",    hasProgress: true,  isDefault: true },
-            "engine_rpm":      { name: "Engine Speed",   unit: " RPM",  hasProgress: true,  isDefault: true },
-            "throttle_percent": { name: "Throttle",       unit: "%",     hasProgress: true,  isDefault: true },
-            "run_time_seconds": { name: "Run Time",       unit: "",      hasProgress: false, isDefault: true },
-            "coolant_temp":     { name: "Coolant Temp",   unit: " °C",   hasProgress: false, isDefault: false },
+            "fuel_mgmt":        { name: "Fuel Level",        unit: " L",    hasProgress: true,  isDefault: true },
+            "engine_rpm":       { name: "Engine Speed",    unit: " RPM",  hasProgress: true,  isDefault: true },
+            "throttle_percent": { name: "Throttle",        unit: "%",     hasProgress: true,  isDefault: true },
+            "run_time_seconds": { name: "Run Time",        unit: "",      hasProgress: false, isDefault: true },
+            "coolant_temp":     { name: "Coolant Temp",    unit: " °C",   hasProgress: false, isDefault: false },
             "oil_pressure":     { name: "Engine Oil Press",unit: " kPa",  hasProgress: false, isDefault: false },
-            "battery_volt":     { name: "Battery Voltage",unit: " V",    hasProgress: false, isDefault: false },
-            "engine_hours":     { name: "Engine Hours",   unit: " hrs",  hasProgress: false, isDefault: false }
+            "battery_volt":     { name: "Battery Voltage", unit: " V",    hasProgress: false, isDefault: false },
+            "engine_hours":     { name: "Engine Hours",    unit: " hrs",  hasProgress: false, isDefault: false }
         };
 
         let activeLayout = [];
@@ -594,44 +579,100 @@
             setTimeout(() => { map.invalidateSize(); }, 300);
         }
 
-        // --- 4. HISTORICAL JOURNEY LOGS ---
+        // --- 3. FETCH HISTORICAL JOURNEY & TELEMETRY FROM SUPABASE ---
         async function loadHistoricalJourney() {
-            let data = ENNISKILLEN_DEMO_LOGS;
+            if (!supabaseClient) {
+                console.error("Supabase client is not initialized.");
+                renderDailyJourneyLogs([]);
+                return;
+            }
 
-            if (supabaseClient) {
-                try {
-                    const { data: dbData, error } = await supabaseClient
-                        .from('telemetry_logs')
-                        .select('*')
-                        .order('created_at', { ascending: true })
-                        .limit(1000);
+            try {
+                const { data, error } = await supabaseClient
+                    .from('telemetry_logs')
+                    .select('*')
+                    .order('created_at', { ascending: true })
+                    .limit(1000);
 
-                    if (!error && dbData && dbData.length > 0) {
-                        data = dbData;
-                    }
-                } catch (err) {
-                    console.warn("Supabase fetch fallback triggered:", err);
+                if (error) {
+                    console.error("Error fetching telemetry data:", error);
+                    renderDailyJourneyLogs([]);
+                    return;
                 }
+
+                if (!data || data.length === 0) {
+                    document.getElementById('journey-logs-container').innerHTML = 
+                        '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No journey records found in Supabase.</div>';
+                    return;
+                }
+
+                // Update Map
+                routeCoordinates = data
+                    .filter(row => row.latitude && row.longitude)
+                    .map(row => [row.latitude, row.longitude]);
+
+                if (routeCoordinates.length > 0) {
+                    routePolyline.setLatLngs(routeCoordinates);
+                    map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
+
+                    const lastRow = data[data.length - 1];
+                    
+                    if (boatMarker) {
+                        boatMarker.setLatLng([lastRow.latitude, lastRow.longitude]);
+                    } else {
+                        boatMarker = L.circleMarker([lastRow.latitude, lastRow.longitude], {
+                            color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
+                        }).addTo(map);
+                    }
+
+                    updateLastUpdatedTimestamp(new Date(lastRow.created_at));
+                    
+                    // Update current gauge values based on latest log entry
+                    updateDashboardWithLatestEntry(lastRow);
+                }
+
+                renderDailyJourneyLogs(data);
+
+            } catch (err) {
+                console.error("Supabase fetch failed:", err);
+                renderDailyJourneyLogs([]);
+            }
+        }
+
+        function updateDashboardWithLatestEntry(latest) {
+            if (!latest) return;
+
+            // Speed gauge
+            if (latest.speed_mph !== undefined) {
+                document.getElementById('speed-val').innerText = Math.round(latest.speed_mph);
+                const speedRing = document.getElementById('speed-ring');
+                let speedPercent = Math.min(1, Math.max(0, latest.speed_mph / 50));
+                speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
             }
 
-            routeCoordinates = data
-                .filter(row => row.latitude && row.longitude)
-                .map(row => [row.latitude, row.longitude]);
+            // Instrument Cards
+            activeLayout.forEach(key => {
+                const valEl = document.getElementById(`val-${key}`);
+                const subEl = document.getElementById(`sub-${key}`);
+                const pbEl = document.getElementById(`pb-${key}`);
 
-            if (routeCoordinates.length > 0) {
-                routePolyline.setLatLngs(routeCoordinates);
-                map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
+                if (!valEl) return;
 
-                const lastRow = data[data.length - 1];
-                
-                boatMarker = L.circleMarker([lastRow.latitude, lastRow.longitude], {
-                    color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
-                }).addTo(map);
-
-                updateLastUpdatedTimestamp(new Date(lastRow.created_at));
-            }
-
-            renderDailyJourneyLogs(data);
+                if (key === 'fuel_mgmt' && latest.fuel_liters !== undefined) {
+                    const percent = latest.fuel_percent !== undefined ? latest.fuel_percent : 0;
+                    valEl.innerText = `${percent}%`;
+                    if (subEl) subEl.innerText = `${latest.fuel_liters} L`;
+                    if (pbEl) pbEl.style.width = `${percent}%`;
+                } else if (key === 'engine_rpm' && latest.rpm !== undefined) {
+                    valEl.innerText = latest.rpm;
+                    if (pbEl) pbEl.style.width = `${Math.min(100, (latest.rpm / 6000) * 100)}%`;
+                } else if (key === 'throttle_percent' && latest.throttle !== undefined) {
+                    valEl.innerText = `${latest.throttle}%`;
+                    if (pbEl) pbEl.style.width = `${latest.throttle}%`;
+                } else if (latest[key] !== undefined) {
+                    valEl.innerText = latest[key] + (GAUGE_REGISTRY[key].unit || '');
+                }
+            });
         }
 
         function renderDailyJourneyLogs(logs) {
@@ -728,6 +769,7 @@
         }
 
         function updateLastUpdatedTimestamp(dateObj) {
+            if (isNaN(dateObj.getTime())) return;
             const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const dateStr = dateObj.toLocaleDateString('en-GB');
             document.getElementById('last-updated-text').innerText = `Last updated at ${timeStr} ${dateStr}`;
@@ -752,13 +794,6 @@
             const grid = document.getElementById('telemetry-grid');
             grid.innerHTML = '';
 
-            const mockValues = {
-                "fuel_mgmt": { val: "77%", sub: "62.0 / 80 L", pb: 77 },
-                "engine_rpm": { val: "3200", sub: "Tachometer", pb: 53 },
-                "throttle_percent": { val: "65%", sub: "Position Index", pb: 65 },
-                "run_time_seconds": { val: "01:42:15", sub: "Active Hours", pb: 0 }
-            };
-
             activeLayout.forEach(key => {
                 const meta = GAUGE_REGISTRY[key];
                 if (!meta) return;
@@ -768,17 +803,15 @@
                 card.setAttribute('draggable', isEditing ? 'true' : 'false');
                 card.setAttribute('data-key', key);
 
-                const demo = mockValues[key] || { val: "0", sub: "Telemetry Data", pb: 0 };
-
                 let progressHtml = meta.hasProgress ? `
                     <div class="progress-track" style="margin-top:6px;">
-                        <div id="pb-${key}" class="progress-bar" style="width: ${demo.pb}%"></div>
+                        <div id="pb-${key}" class="progress-bar" style="width: 0%"></div>
                     </div>` : '';
 
                 card.innerHTML = `
                     <div class="card-label">${meta.name}</div>
-                    <div id="val-${key}" class="card-val">${demo.val}</div>
-                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">${demo.sub}</div>
+                    <div id="val-${key}" class="card-val">--</div>
+                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">No Data</div>
                     ${progressHtml}
                     <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
                 `;
@@ -792,10 +825,6 @@
                     selector.innerHTML += `<option value="${key}">${GAUGE_REGISTRY[key].name}</option>`;
                 }
             });
-
-            const speedRing = document.getElementById('speed-ring');
-            let speedPercent = 22 / 50;
-            speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
         }
 
         function toggleEditMode() {
@@ -824,6 +853,7 @@
                 activeLayout.push(selector.value);
                 renderGaugeGrid();
                 saveLayoutConfig();
+                loadHistoricalJourney();
             }
         }
 
@@ -832,10 +862,12 @@
             activeLayout = activeLayout.filter(k => k !== key);
             renderGaugeGrid();
             saveLayoutConfig();
+            loadHistoricalJourney();
         }
 
         async function toggleBluetoothConnection() {
-            alert("This is a demo setup for Lough Erne (Enniskillen). Pair button will connect to your real BLE hardware when available.");
+            // Placeholder for Web Bluetooth API execution
+            alert("Bluetooth pairing requested. Connect your BLE telemetry hardware device.");
         }
 
         async function sendRefillCommand() {
@@ -846,8 +878,22 @@
                 alert("Please enter a valid number of liters.");
                 return;
             }
-            alert(`Demo Refill Logged: ${liters} L added to Nautique tank.`);
-            input.value = '';
+
+            if (supabaseClient) {
+                try {
+                    const { error } = await supabaseClient
+                        .from('telemetry_logs')
+                        .insert([{ fuel_liters: liters, event_type: 'refill' }]);
+
+                    if (error) throw error;
+
+                    alert(`Refill Logged: ${liters} L saved to Supabase.`);
+                    input.value = '';
+                    loadHistoricalJourney();
+                } catch (err) {
+                    alert(`Failed to save refill to Supabase: ${err.message}`);
+                }
+            }
         }
 
         window.addEventListener('DOMContentLoaded', () => {
