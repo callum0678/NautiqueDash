@@ -19,6 +19,7 @@
             --text-muted: #7e8494;
             --danger-red: #ff3b30;
             --connected-green: #00ff66;
+            --sync-blue: #0099ff;
         }
 
         body { 
@@ -66,7 +67,7 @@
             text-shadow: 0 0 10px var(--orange-glow);
         }
 
-        .bt-connection-bar { margin-bottom: 20px; }
+        .bt-connection-bar { margin-bottom: 10px; }
 
         .btn-connect {
             background: linear-gradient(135deg, #ff5500 0%, #d44400 100%);
@@ -88,6 +89,20 @@
             color: var(--connected-green);
             border: 1px solid var(--connected-green);
             box-shadow: 0 0 10px rgba(0, 255, 102, 0.2);
+        }
+
+        #sync-banner {
+            display: none;
+            font-size: 0.72rem;
+            color: var(--sync-blue);
+            background: rgba(0, 153, 255, 0.1);
+            border: 1px solid var(--sync-blue);
+            border-radius: 8px;
+            padding: 6px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
         }
 
         .speed-gauge-container {
@@ -336,7 +351,7 @@
         #gps-status {
             font-size: 0.7rem;
             color: var(--text-muted);
-            margin-top: -10px;
+            margin-top: 5px;
             margin-bottom: 15px;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -354,6 +369,7 @@
             <button id="bt-btn" class="btn-connect" onclick="toggleBluetoothConnection()">Pair Bluetooth Device</button>
         </div>
         
+        <div id="sync-banner">Syncing Offline Flash Logs...</div>
         <div id="gps-status">GPS: DISCONNECTED</div>
 
         <div class="speed-gauge-container">
@@ -394,8 +410,12 @@
         const NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
         const NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
+        // --- Supabase Config ---
+        const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
+        const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+
         const GAUGE_REGISTRY = {
-            "fuel_mgmt":        { name: "Fuel Level",     unit: " L",    hasProgress: true,  isDefault: true },
+            "fuel_mgmt":        { name: "Fuel Level",       unit: " L",    hasProgress: true,  isDefault: true },
             "engine_rpm":       { name: "Engine Speed",   unit: " RPM",  hasProgress: true,  isDefault: true },
             "throttle_percent": { name: "Throttle",       unit: "%",     hasProgress: true,  isDefault: true },
             "run_time_seconds": { name: "Run Time",       unit: "",      hasProgress: false, isDefault: true },
@@ -421,6 +441,10 @@
         let txCharacteristic = null;
         let isConnected = false;
         let receiveBuffer = "";
+
+        // Log Synchronization State
+        let isSyncingLogs = false;
+        let syncedLogBuffer = [];
 
         function initLayoutConfig() {
             let stored = localStorage.getItem('nautique_layout_v2');
@@ -610,6 +634,10 @@
                 const btBtn = document.getElementById('bt-btn');
                 btBtn.innerText = "BLE Connected";
                 btBtn.classList.add('connected');
+
+                // Request Sync on connect
+                triggerOfflineSync();
+
             } catch (err) {
                 console.error("BLE Connection Error:", err);
             }
@@ -623,6 +651,7 @@
 
             document.getElementById('gps-status').innerText = "GPS: DISCONNECTED";
             document.getElementById('gps-status').style.color = "var(--text-muted)";
+            document.getElementById('sync-banner').style.display = 'none';
         }
 
         function disconnectBluetooth() {
@@ -630,6 +659,12 @@
                 bleDevice.gatt.disconnect();
             }
             onDisconnected();
+        }
+
+        function triggerOfflineSync() {
+            if (!isConnected || !rxCharacteristic) return;
+            const encoder = new TextEncoder();
+            rxCharacteristic.writeValue(encoder.encode("SYNC\n"));
         }
 
         function handleBLEData(event) {
@@ -645,10 +680,71 @@
                 if (line.startsWith('{') && line.endsWith('}')) {
                     try {
                         const data = JSON.parse(line);
-                        updateDashboard(data);
+                        
+                        if (data.type === "SYNC_START") {
+                            isSyncingLogs = true;
+                            syncedLogBuffer = [];
+                            document.getElementById('sync-banner').style.display = 'block';
+                        } else if (data.type === "LOG_ROW") {
+                            syncedLogBuffer.push(data.data);
+                        } else if (data.type === "SYNC_END") {
+                            isSyncingLogs = false;
+                            document.getElementById('sync-banner').style.display = 'none';
+                            processSyncedLogs(syncedLogBuffer);
+                        } else {
+                            updateDashboard(data);
+                        }
                     } catch (e) { console.error("JSON Error", e); }
                 }
             });
+        }
+
+        async function processSyncedLogs(logs) {
+            if (logs.length === 0) return;
+            console.log(`Received ${logs.length} offline CSV rows from ESP32. Syncing to Supabase...`);
+
+            // Standard Supabase REST API push (Batch Insert)
+            try {
+                let dbRows = [];
+                logs.forEach(row => {
+                    let cols = row.split(',');
+                    if (cols[0] !== "timestamp_ms" && cols.length >= 7) {
+                        dbRows.push({
+                            uptime_ms: parseInt(cols[0]),
+                            rpm: parseFloat(cols[1]),
+                            fuel_l: parseFloat(cols[2]),
+                            coolant_temp: parseFloat(cols[3]),
+                            oil_pressure: parseFloat(cols[4]),
+                            battery_volt: parseFloat(cols[5]),
+                            gps_speed: parseFloat(cols[6])
+                        });
+                    }
+                });
+
+                if (SUPABASE_URL !== "YOUR_SUPABASE_URL_HERE" && dbRows.length > 0) {
+                    let response = await fetch(`${SUPABASE_URL}/rest/v1/telemetry_logs`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`
+                        },
+                        body: JSON.stringify(dbRows)
+                    });
+
+                    if (response.ok) {
+                        console.log("Supabase upload success. Clearing ESP32 log buffer...");
+                        const encoder = new TextEncoder();
+                        await rxCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
+                    }
+                } else {
+                    console.log("Supabase URL unconfigured. Clearing ESP32 logs locally...");
+                    const encoder = new TextEncoder();
+                    await rxCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
+                }
+            } catch (err) {
+                console.error("Log upload failed:", err);
+            }
         }
 
         async function sendRefillCommand() {
