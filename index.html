@@ -407,8 +407,8 @@
 
     <script>
         const NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-        const NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-        const NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+        const NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // ESP32 Receive (Web BLE Tx)
+        const NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // ESP32 Transmit (Web BLE Rx)
 
         // --- Supabase Config ---
         const SUPABASE_URL = "https://cgssprxbklhkoscvclux.supabase.co/";
@@ -437,8 +437,8 @@
 
         let bleDevice = null;
         let bleServer = null;
-        let rxCharacteristic = null;
-        let txCharacteristic = null;
+        let rxCharacteristic = null; // Reads/Receives from board
+        let txCharacteristic = null; // Writes to board
         let isConnected = false;
         let receiveBuffer = "";
 
@@ -624,11 +624,11 @@
                 bleServer = await bleDevice.gatt.connect();
                 const service = await bleServer.getPrimaryService(NUS_SERVICE_UUID);
 
-                rxCharacteristic = await service.getCharacteristic(NUS_RX_UUID);
-                txCharacteristic = await service.getCharacteristic(NUS_TX_UUID);
+                txCharacteristic = await service.getCharacteristic(NUS_RX_UUID); // App Outbound / ESP32 Inbound
+                rxCharacteristic = await service.getCharacteristic(NUS_TX_UUID); // App Inbound / ESP32 Outbound
 
-                await txCharacteristic.startNotifications();
-                txCharacteristic.addEventListener('characteristicvaluechanged', handleBLEData);
+                await rxCharacteristic.startNotifications();
+                rxCharacteristic.addEventListener('characteristicvaluechanged', handleBLEData);
 
                 isConnected = true;
                 const btBtn = document.getElementById('bt-btn');
@@ -661,10 +661,10 @@
             onDisconnected();
         }
 
-        function triggerOfflineSync() {
-            if (!isConnected || !rxCharacteristic) return;
+        async function triggerOfflineSync() {
+            if (!isConnected || !txCharacteristic) return;
             const encoder = new TextEncoder();
-            rxCharacteristic.writeValue(encoder.encode("SYNC\n"));
+            await txCharacteristic.writeValue(encoder.encode("SYNC\n"));
         }
 
         function handleBLEData(event) {
@@ -703,7 +703,6 @@
             if (logs.length === 0) return;
             console.log(`Received ${logs.length} offline CSV rows from ESP32. Syncing to Supabase...`);
 
-            // Standard Supabase REST API push (Batch Insert)
             try {
                 let dbRows = [];
                 logs.forEach(row => {
@@ -735,12 +734,12 @@
                     if (response.ok) {
                         console.log("Supabase upload success. Clearing ESP32 log buffer...");
                         const encoder = new TextEncoder();
-                        await rxCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
+                        await txCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
                     }
                 } else {
                     console.log("Supabase URL unconfigured. Clearing ESP32 logs locally...");
                     const encoder = new TextEncoder();
-                    await rxCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
+                    await txCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
                 }
             } catch (err) {
                 console.error("Log upload failed:", err);
@@ -756,14 +755,14 @@
                 return;
             }
 
-            if (!isConnected || !rxCharacteristic) {
+            if (!isConnected || !txCharacteristic) {
                 alert("Bluetooth connection missing.");
                 return;
             }
 
             const encoder = new TextEncoder();
             const commandData = encoder.encode(`REFILL:${liters}\n`);
-            await rxCharacteristic.writeValue(commandData);
+            await txCharacteristic.writeValue(commandData);
             
             input.value = '';
             alert(`Sent Refill Command: ${liters} L`);
@@ -803,11 +802,11 @@
                 }
 
                 if (key === 'fuel_mgmt') {
-                    valEl.innerText = data.fuel_percent + '%';
-                    if(subEl) subEl.innerText = data.fuel_liters + ' / 80 L';
-                    if(pbEl) pbEl.style.width = data.fuel_percent + '%';
+                    valEl.innerText = (data.fuel_percent !== undefined ? data.fuel_percent : '--') + '%';
+                    if(subEl) subEl.innerText = (data.fuel_liters !== undefined ? data.fuel_liters : '--') + ' / 80 L';
+                    if(pbEl) pbEl.style.width = (data.fuel_percent || 0) + '%';
                 } else if (key === 'run_time_seconds') {
-                    valEl.innerText = data.runtime;
+                    valEl.innerText = data.runtime !== undefined ? data.runtime : '--';
                 } else {
                     valEl.innerText = value + unit;
                     
