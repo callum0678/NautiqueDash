@@ -13,9 +13,8 @@
     <!-- Leaflet CSS for Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
-    <!-- Supabase JS Library -->
+    <!-- Supabase & Leaflet JS Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Leaflet JS Library -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
     <style>
@@ -29,6 +28,7 @@
             --text-muted: #7e8494;
             --danger-red: #ff3b30;
             --connected-green: #00ff66;
+            --sync-blue: #0099ff;
         }
 
         body { 
@@ -79,15 +79,13 @@
         .last-updated-header {
             font-size: 0.72rem;
             color: var(--text-muted);
-            margin-bottom: 18px;
+            margin-bottom: 15px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             font-weight: 600;
         }
 
-        .bt-connection-bar {
-            margin-bottom: 20px;
-        }
+        .bt-connection-bar { margin-bottom: 12px; }
 
         .btn-connect {
             background: linear-gradient(135deg, #ff5500 0%, #d44400 100%);
@@ -111,11 +109,25 @@
             box-shadow: 0 0 10px rgba(0, 255, 102, 0.2);
         }
 
+        #sync-banner {
+            display: none;
+            font-size: 0.72rem;
+            color: var(--sync-blue);
+            background: rgba(0, 153, 255, 0.1);
+            border: 1px solid var(--sync-blue);
+            border-radius: 8px;
+            padding: 6px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+        }
+
         .speed-gauge-container {
             position: relative;
             width: 220px;
             height: 220px;
-            margin: 0 auto 25px auto;
+            margin: 0 auto 20px auto;
         }
 
         .speed-svg { transform: rotate(-90deg); }
@@ -374,7 +386,7 @@
         #gps-status {
             font-size: 0.7rem;
             color: var(--text-muted);
-            margin-top: -10px;
+            margin-top: -5px;
             margin-bottom: 15px;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -480,6 +492,7 @@
             <button id="bt-btn" class="btn-connect" onclick="toggleBluetoothConnection()">Pair Bluetooth Device</button>
         </div>
         
+        <div id="sync-banner">Syncing Offline Flash Logs...</div>
         <div id="gps-status">GPS: DISCONNECTED</div>
 
         <div class="speed-gauge-container">
@@ -559,12 +572,19 @@
         const circumference = 2 * Math.PI * 90;
 
         // --- 3. BLE HARDWARE CONFIGURATION ---
-        const SERVICE_UUID = "42a22230-811d-40d9-b68f-f138c26c0001";
-        const CHARACTERISTIC_UUID = "42a22231-811d-40d9-b68f-f138c26c0001";
+        const SERVICE_UUID           = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+        const CHARACTERISTIC_UUID_RX = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
+        const CHARACTERISTIC_UUID_TX = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
         
         let bleDevice = null;
-        let bleCharacteristic = null;
+        let rxCharacteristic = null;
+        let txCharacteristic = null;
         let isConnected = false;
+        let receiveBuffer = "";
+
+        // Log Sync State
+        let isSyncingLogs = false;
+        let syncedLogBuffer = [];
 
         // Map Variables
         let map, routePolyline, boatMarker;
@@ -591,7 +611,7 @@
             setTimeout(() => { map.invalidateSize(); }, 300);
         }
 
-        // --- 5. BLE HARDWARE CONNECTIVITY & PARSING ---
+        // --- 5. BLE CONNECTIVITY & PARSING ---
         async function toggleBluetoothConnection() {
             if (isConnected) {
                 disconnectBLE();
@@ -603,27 +623,33 @@
         async function connectBLE() {
             const btBtn = document.getElementById('bt-btn');
             try {
+                if (!('bluetooth' in navigator)) {
+                    alert('Web Bluetooth API is not supported in this browser.');
+                    return;
+                }
+
                 btBtn.innerText = "Connecting...";
                 bleDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: 'Nautique' }, { namePrefix: 'ESP32' }, { namePrefix: 'Nelly' }],
+                    filters: [{ name: 'Nautique-Telemetry' }, { namePrefix: 'Nautique' }],
                     optionalServices: [SERVICE_UUID]
                 });
 
                 bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
                 const server = await bleDevice.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
-                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-                await bleCharacteristic.startNotifications();
-                bleCharacteristic.addEventListener('characteristicvaluechanged', handleBLENotification);
+                rxCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_RX);
+                txCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_TX);
+
+                await txCharacteristic.startNotifications();
+                txCharacteristic.addEventListener('characteristicvaluechanged', handleBLEData);
 
                 isConnected = true;
                 btBtn.innerText = "Connected (BLE)";
                 btBtn.classList.add('connected');
 
-                // Trigger Offline Log Sync
-                const encoder = new TextEncoder();
-                await bleCharacteristic.writeValue(encoder.encode("SYNC\n"));
+                // Trigger Offline Log Sync upon successful connect
+                triggerOfflineSync();
 
             } catch (error) {
                 console.error("BLE Connection Failed:", error);
@@ -645,84 +671,122 @@
             const btBtn = document.getElementById('bt-btn');
             btBtn.innerText = "Pair Bluetooth Device";
             btBtn.classList.remove('connected');
+            document.getElementById('sync-banner').style.display = 'none';
         }
 
-        function handleBLENotification(event) {
-            const decoder = new TextDecoder('utf-8');
-            const rawData = decoder.decode(event.target.value).trim();
-            const lines = rawData.split('\n');
+        function triggerOfflineSync() {
+            if (!isConnected || !rxCharacteristic) return;
+            const encoder = new TextEncoder();
+            rxCharacteristic.writeValue(encoder.encode("SYNC\n"));
+        }
+
+        function handleBLEData(event) {
+            let decoder = new TextDecoder('utf-8');
+            let chunk = decoder.decode(event.target.value);
+            receiveBuffer += chunk;
+
+            let lines = receiveBuffer.split('\n');
+            receiveBuffer = lines.pop();
 
             lines.forEach(line => {
-                if (line.startsWith("OFFLINE_LOG:")) {
-                    parseOfflineLogPacket(line);
-                } else if (line.startsWith("LIVE:")) {
-                    parseLivePacket(line);
-                } else {
-                    parseKeyValuePacket(line);
+                line = line.trim();
+                if (line.startsWith('{') && line.endsWith('}')) {
+                    try {
+                        const data = JSON.parse(line);
+                        
+                        if (data.type === "SYNC_START") {
+                            isSyncingLogs = true;
+                            syncedLogBuffer = [];
+                            document.getElementById('sync-banner').style.display = 'block';
+                        } else if (data.type === "LOG_ROW") {
+                            syncedLogBuffer.push(data.data);
+                        } else if (data.type === "SYNC_END") {
+                            isSyncingLogs = false;
+                            document.getElementById('sync-banner').style.display = 'none';
+                            processSyncedLogs(syncedLogBuffer);
+                        } else {
+                            updateDashboard(data);
+                            pushTelemetryToSupabase(data);
+                        }
+                    } catch (e) { 
+                        console.error("JSON Parse Error:", e, line); 
+                    }
                 }
             });
             updateLastUpdatedTimestamp(new Date());
         }
 
-        function parseLivePacket(line) {
-            const payload = line.substring(5);
-            const parts = payload.split(',');
-            const data = {};
-            parts.forEach(p => {
-                const [k, v] = p.split('=');
-                if (k && v !== undefined) data[k.trim()] = parseFloat(v);
-            });
+        async function processSyncedLogs(logs) {
+            if (logs.length === 0) return;
+            console.log(`Syncing ${logs.length} offline CSV rows from ESP32 flash buffer...`);
 
-            if (data.LAT !== undefined && data.LNG !== undefined && (data.LAT !== 0 || data.LNG !== 0)) {
-                document.getElementById('gps-status').innerText = "GPS: CONNECTED";
-                updateLiveMap(data.LAT, data.LNG);
-            }
+            try {
+                let dbRows = [];
+                logs.forEach(row => {
+                    let cols = row.split(',');
+                    if (cols[0] !== "uptime_ms" && cols.length >= 9) {
+                        dbRows.push({
+                            uptime_ms: parseInt(cols[0]),
+                            latitude: parseFloat(cols[1]),
+                            longitude: parseFloat(cols[2]),
+                            fuel_liters: parseFloat(cols[3]),
+                            engine_rpm: parseFloat(cols[4]),
+                            coolant_temp: parseFloat(cols[5]),
+                            oil_pressure: parseFloat(cols[6]),
+                            battery_volt: parseFloat(cols[7]),
+                            gps_speed: parseFloat(cols[8]),
+                            event_type: 'telemetry_offline_sync'
+                        });
+                    }
+                });
 
-            if (data.SPD !== undefined) updateSpeedometer(data.SPD);
-            if (data.RPM !== undefined) updateGaugeValue('engine_rpm', data.RPM, `${Math.min(100, (data.RPM/6000)*100)}%`);
-            if (data.THR !== undefined) updateGaugeValue('throttle_percent', data.THR, `${data.THR}%`);
-            if (data.FUEL !== undefined) updateGaugeValue('fuel_mgmt', data.FUEL, `${Math.min(100, (data.FUEL/80.0)*100)}%`, `${data.FUEL.toFixed(1)} L`);
-            if (data.SEC !== undefined) updateGaugeValue('run_time_seconds', formatSeconds(data.SEC));
-
-            pushTelemetryToSupabase({
-                latitude: data.LAT,
-                longitude: data.LNG,
-                speed_mph: data.SPD,
-                rpm: data.RPM,
-                throttle: data.THR,
-                fuel_liters: data.FUEL,
-                run_time_seconds: data.SEC
-            });
-        }
-
-        function parseOfflineLogPacket(line) {
-            const parts = line.substring(12).split(',');
-            if (parts.length >= 6) {
-                const logData = {
-                    created_at: new Date(parseInt(parts[0]) * 1000).toISOString(),
-                    latitude: parseFloat(parts[1]),
-                    longitude: parseFloat(parts[2]),
-                    speed_mph: parseFloat(parts[3]),
-                    rpm: parseInt(parts[4]),
-                    fuel_liters: parseFloat(parts[5])
-                };
-                pushTelemetryToSupabase(logData);
+                if (supabaseClient && dbRows.length > 0) {
+                    const { error } = await supabaseClient.from('telemetry_logs').insert(dbRows);
+                    if (!error) {
+                        console.log("Supabase batch sync successful. Clearing ESP32 log storage...");
+                        const encoder = new TextEncoder();
+                        await rxCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
+                        loadHistoricalJourney();
+                    } else {
+                        console.error("Supabase batch insert error:", error);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed processing synced logs:", err);
             }
         }
 
-        function parseKeyValuePacket(line) {
-            const parts = line.split(':');
-            if (parts.length < 2) return;
-            const key = parts[0].trim();
-            const val = parseFloat(parts[1]);
+        function updateDashboard(data) {
+            const gpsStatus = document.getElementById('gps-status');
 
-            if (key === "COOLANT") updateGaugeValue('coolant_temp', val);
-            if (key === "OIL") updateGaugeValue('oil_pressure', val);
-            if (key === "BATTERY") updateGaugeValue('battery_volt', val);
-            if (key === "HOURS") updateGaugeValue('engine_hours', val);
-            if (key === "INTAKE") updateGaugeValue('intake_temp', val);
-            if (key === "FUEL_RATE") updateGaugeValue('fuel_rate', val);
-            if (key === "ZEROOFF") updateGaugeValue('zerooff_speed', val);
+            if (data.gps_valid && data.gps_speed !== undefined) {
+                gpsStatus.innerText = "GPS: LOCKED";
+                gpsStatus.style.color = "#00ff66";
+                updateSpeedometer(data.gps_speed);
+            } else {
+                gpsStatus.innerText = "GPS: SEARCHING...";
+                gpsStatus.style.color = "#ff8800";
+                updateSpeedometer(0);
+            }
+
+            if (data.latitude !== undefined && data.longitude !== undefined && (data.latitude !== 0 || data.longitude !== 0)) {
+                updateLiveMap(data.latitude, data.longitude);
+            }
+
+            activeLayout.forEach(key => {
+                if (key === 'fuel_mgmt' && data.fuel_liters !== undefined) {
+                    const pct = data.fuel_percent || Math.min(100, (data.fuel_liters / 80.0) * 100);
+                    updateGaugeValue('fuel_mgmt', `${pct.toFixed(0)}%`, `${pct}%`, `${data.fuel_liters.toFixed(1)} L`);
+                } else if (key === 'engine_rpm' && data.engine_rpm !== undefined) {
+                    updateGaugeValue('engine_rpm', data.engine_rpm, `${Math.min(100, (data.engine_rpm / 6000) * 100)}%`);
+                } else if (key === 'throttle_percent' && data.throttle_percent !== undefined) {
+                    updateGaugeValue('throttle_percent', data.throttle_percent, `${data.throttle_percent}%`);
+                } else if (key === 'run_time_seconds' && data.runtime !== undefined) {
+                    updateGaugeValue('run_time_seconds', data.runtime);
+                } else if (data[key] !== undefined) {
+                    updateGaugeValue(key, data[key]);
+                }
+            });
         }
 
         function updateSpeedometer(speedMph) {
@@ -766,13 +830,28 @@
         async function pushTelemetryToSupabase(payload) {
             if (!supabaseClient) return;
             try {
-                await supabaseClient.from('telemetry_logs').insert([payload]);
+                await supabaseClient.from('telemetry_logs').insert([{
+                    uptime_ms: payload.uptime_ms,
+                    latitude: payload.latitude,
+                    longitude: payload.longitude,
+                    fuel_liters: payload.fuel_liters,
+                    fuel_percent: payload.fuel_percent,
+                    engine_rpm: payload.engine_rpm,
+                    throttle_percent: payload.throttle_percent,
+                    coolant_temp: payload.coolant_temp,
+                    oil_pressure: payload.oil_pressure,
+                    battery_volt: payload.battery_volt,
+                    engine_hours: payload.engine_hours,
+                    gps_speed: payload.gps_speed,
+                    trip_seconds: payload.run_time_seconds,
+                    event_type: 'telemetry'
+                }]);
             } catch (err) {
                 console.error("Supabase live write failed:", err);
             }
         }
 
-        // --- 6. FETCH HISTORICAL JOURNEY & TELEMETRY FROM SUPABASE ---
+        // --- 6. HISTORICAL JOURNEY LOGS LOADER ---
         async function loadHistoricalJourney() {
             if (!supabaseClient) {
                 renderDailyJourneyLogs([]);
@@ -784,17 +863,17 @@
                     .from('telemetry_logs')
                     .select('*')
                     .order('created_at', { ascending: true })
-                    .limit(1000);
+                    .limit(2000);
 
                 if (error) {
-                    console.error("Error fetching telemetry data:", error);
+                    console.error("Error fetching historical telemetry:", error);
                     renderDailyJourneyLogs([]);
                     return;
                 }
 
                 if (!data || data.length === 0) {
                     document.getElementById('journey-logs-container').innerHTML = 
-                        '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No journey records found in Supabase.</div>';
+                        '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No journey records found.</div>';
                     return;
                 }
 
@@ -807,7 +886,6 @@
                     map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
 
                     const lastRow = data[data.length - 1];
-                    
                     if (boatMarker) {
                         boatMarker.setLatLng([lastRow.latitude, lastRow.longitude]);
                     } else {
@@ -815,9 +893,7 @@
                             color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
                         }).addTo(map);
                     }
-
                     updateLastUpdatedTimestamp(new Date(lastRow.created_at));
-                    updateDashboardWithLatestEntry(lastRow);
                 }
 
                 renderDailyJourneyLogs(data);
@@ -828,33 +904,10 @@
             }
         }
 
-        function updateDashboardWithLatestEntry(latest) {
-            if (!latest) return;
-
-            if (latest.speed_mph !== undefined) {
-                updateSpeedometer(latest.speed_mph);
-            }
-
-            activeLayout.forEach(key => {
-                if (key === 'fuel_mgmt' && latest.fuel_liters !== undefined) {
-                    const percent = Math.min(100, (latest.fuel_liters / 80.0) * 100).toFixed(0);
-                    updateGaugeValue('fuel_mgmt', `${percent}%`, `${percent}%`, `${latest.fuel_liters.toFixed(1)} L`);
-                } else if (key === 'engine_rpm' && latest.rpm !== undefined) {
-                    updateGaugeValue('engine_rpm', latest.rpm, `${Math.min(100, (latest.rpm / 6000) * 100)}%`);
-                } else if (key === 'throttle_percent' && latest.throttle !== undefined) {
-                    updateGaugeValue('throttle_percent', latest.throttle, `${latest.throttle}%`);
-                } else if (key === 'run_time_seconds' && latest.run_time_seconds !== undefined) {
-                    updateGaugeValue('run_time_seconds', formatSeconds(latest.run_time_seconds));
-                } else if (latest[key] !== undefined) {
-                    updateGaugeValue(key, latest[key]);
-                }
-            });
-        }
-
         function renderDailyJourneyLogs(logs) {
             const container = document.getElementById('journey-logs-container');
             if (!logs || logs.length === 0) {
-                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No journey records found.</div>';
+                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No records found.</div>';
                 return;
             }
 
@@ -871,8 +924,8 @@
                 const dayLogs = grouped[dateKey];
                 const tripsCount = dayLogs.length;
 
-                const fuelStart = dayLogs[0].fuel_liters || 0;
-                const fuelEnd = dayLogs[dayLogs.length - 1].fuel_liters || 0;
+                const fuelStart = dayLogs[0].fuel_liters || 80;
+                const fuelEnd = dayLogs[dayLogs.length - 1].fuel_liters || 80;
                 const fuelUsed = Math.max(0, (fuelStart - fuelEnd)).toFixed(1);
 
                 const formattedDate = new Date(dateKey).toLocaleDateString('en-GB', {
@@ -884,10 +937,10 @@
                         <div class="journey-day-header" onclick="toggleDayAccordion(${index}, '${dateKey}')">
                             <div class="day-info">
                                 <div class="day-date">${formattedDate}</div>
-                                <div class="day-meta">${tripsCount} GPS points aggregated</div>
+                                <div class="day-meta">${tripsCount} GPS points recorded</div>
                             </div>
                             <div class="day-fuel-pill">
-                                <span>${fuelUsed > 0 ? fuelUsed + ' L Used' : 'Minimal Fuel'}</span>
+                                <span>${fuelUsed > 0 ? fuelUsed + ' L Used' : 'Minimal Burn'}</span>
                                 <span class="toggle-arrow">▼</span>
                             </div>
                         </div>
@@ -899,7 +952,6 @@
             }).join('');
 
             window.dailyLogsGrouped = grouped;
-            window.sortedDates = sortedDates;
         }
 
         function toggleDayAccordion(index, dateKey) {
@@ -944,33 +996,33 @@
             }
         }
 
-        // --- 7. REFILL COMMANDS & UI LAYOUT CONTROL ---
+        // --- 7. REFILL & LAYOUT CONTROLS ---
         async function sendRefillCommand() {
             const input = document.getElementById('refill-input');
             const liters = parseFloat(input.value);
 
             if (isNaN(liters) || liters <= 0) {
-                alert("Please enter a valid number of liters.");
+                alert("Please enter a valid amount of liters.");
                 return;
             }
 
-            if (isConnected && bleCharacteristic) {
-                try {
-                    const encoder = new TextEncoder();
-                    await bleCharacteristic.writeValue(encoder.encode(`REFILL:${liters}\n`));
-                    alert(`Refill Command Sent via BLE: ${liters} Liters`);
-                } catch (err) {
-                    console.error("Failed to send BLE refill command:", err);
-                }
+            if (isConnected && rxCharacteristic) {
+                const encoder = new TextEncoder();
+                await rxCharacteristic.writeValue(encoder.encode(`REFILL:${liters}\n`));
+                alert(`Refill Command Sent via BLE: ${liters} Liters`);
             }
 
             if (supabaseClient) {
                 try {
-                    await supabaseClient.from('telemetry_logs').insert([{ fuel_liters: liters, event_type: 'refill' }]);
+                    await supabaseClient.from('telemetry_logs').insert([{ 
+                        fuel_liters: 80.0, 
+                        fuel_percent: 100.0,
+                        event_type: 'refill' 
+                    }]);
                     input.value = '';
                     loadHistoricalJourney();
                 } catch (err) {
-                    console.error("Failed to log refill to Supabase:", err);
+                    console.error("Failed logging refill to Supabase:", err);
                 }
             }
         }
@@ -1007,7 +1059,6 @@
 
                 const card = document.createElement('div');
                 card.className = 'gauge-card';
-                card.setAttribute('draggable', isEditing ? 'true' : 'false');
                 card.setAttribute('data-key', key);
 
                 let progressHtml = meta.hasProgress ? `
@@ -1018,7 +1069,7 @@
                 card.innerHTML = `
                     <div class="card-label">${meta.name}</div>
                     <div id="val-${key}" class="card-val">--</div>
-                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">No Data</div>
+                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">Telemetry Active</div>
                     ${progressHtml}
                     <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
                 `;
@@ -1060,7 +1111,6 @@
                 activeLayout.push(selector.value);
                 renderGaugeGrid();
                 saveLayoutConfig();
-                loadHistoricalJourney();
             }
         }
 
@@ -1069,16 +1119,9 @@
             activeLayout = activeLayout.filter(k => k !== key);
             renderGaugeGrid();
             saveLayoutConfig();
-            loadHistoricalJourney();
         }
 
-        function formatSeconds(totalSecs) {
-            const mins = Math.floor(totalSecs / 60);
-            const secs = Math.floor(totalSecs % 60);
-            return `${mins}m ${secs}s`;
-        }
-
-        // --- 8. INITIALIZE DASHBOARD ---
+        // --- 8. INITIALIZATION ---
         window.addEventListener('DOMContentLoaded', () => {
             initMap();
             initLayoutConfig();
