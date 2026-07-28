@@ -3,20 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nelly the Nautique - Lough Erne Dashboard</title>
-    
-    <!-- Fonts -->
+    <title>Nelly the Nautique Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-    
-    <!-- Leaflet CSS for Map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-
-    <!-- Supabase JS Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Leaflet JS Library -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
     <style>
         :root {
@@ -43,7 +33,7 @@
         }
 
         .dashboard { 
-            max-width: 480px; 
+            max-width: 460px; 
             margin: 10px auto; 
             background: var(--panel-bg); 
             padding: 25px 20px; 
@@ -72,22 +62,11 @@
             text-transform: uppercase; 
             letter-spacing: 3px; 
             font-weight: 800; 
-            margin-bottom: 8px; 
+            margin-bottom: 15px; 
             text-shadow: 0 0 10px var(--orange-glow);
         }
 
-        .last-updated-header {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            margin-bottom: 18px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-        }
-
-        .bt-connection-bar {
-            margin-bottom: 20px;
-        }
+        .bt-connection-bar { margin-bottom: 20px; }
 
         .btn-connect {
             background: linear-gradient(135deg, #ff5500 0%, #d44400 100%);
@@ -156,37 +135,6 @@
             color: var(--text-muted);
             font-weight: 600;
             margin-top: 2px;
-        }
-
-        #map-card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 10px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(255, 85, 0, 0.2);
-            text-align: left;
-        }
-
-        #map-title {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
-            margin-bottom: 8px;
-            padding-left: 5px;
-        }
-
-        #map {
-            width: 100%;
-            height: 240px;
-            border-radius: 14px;
-            background: #121317;
-            z-index: 1;
-        }
-
-        .dark-tiles {
-            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
         }
 
         .grid-header-row {
@@ -288,6 +236,14 @@
             cursor: move;
             animation: gentleWobble 0.3s infinite alternate;
         }
+        .edit-mode .gauge-card::after {
+            content: '☰';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: var(--nautique-orange);
+            font-size: 0.8rem;
+        }
 
         .card-delete-btn {
             display: none;
@@ -305,6 +261,12 @@
             z-index: 10;
         }
         .edit-mode .card-delete-btn { display: block; }
+        
+        .gauge-card.dragging {
+            opacity: 0.5;
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
 
         @keyframes gentleWobble {
             0% { transform: rotate(-0.5deg); }
@@ -380,107 +342,19 @@
             letter-spacing: 1px;
             font-weight: 800;
         }
-
-        .journey-logs-section {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            text-align: left;
-        }
-
-        .journey-day-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            margin-bottom: 12px;
-            overflow: hidden;
-            transition: border-color 0.2s ease;
-        }
-
-        .journey-day-card.active {
-            border-color: rgba(255, 85, 0, 0.4);
-        }
-
-        .journey-day-header {
-            padding: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .day-info {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .day-date {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-main);
-        }
-
-        .day-meta {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-
-        .day-fuel-pill {
-            background: rgba(255, 85, 0, 0.15);
-            color: var(--nautique-orange);
-            font-size: 0.78rem;
-            font-weight: 800;
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 85, 0, 0.2);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .toggle-arrow {
-            font-size: 0.8rem;
-            transition: transform 0.3s ease;
-            color: var(--text-muted);
-        }
-
-        .journey-day-card.active .toggle-arrow {
-            transform: rotate(180deg);
-            color: var(--nautique-orange);
-        }
-
-        .journey-day-content {
-            display: none;
-            padding: 0 16px 16px 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.03);
-            background: rgba(18, 19, 23, 0.5);
-        }
-
-        .day-map-container {
-            width: 100%;
-            height: 200px;
-            border-radius: 12px;
-            margin-top: 12px;
-            background: #121317;
-            z-index: 1;
-        }
     </style>
 </head>
 <body>
 
     <div class="dashboard">
         <h1>Nelly the Nautique</h1>
-        <div class="subtitle">Lough Erne Telemetry Hub</div>
-        <div class="last-updated-header" id="last-updated-text">Last updated: --</div>
+        <div class="subtitle">Multi-Telemetry Hub</div>
 
         <div class="bt-connection-bar">
             <button id="bt-btn" class="btn-connect" onclick="toggleBluetoothConnection()">Pair Bluetooth Device</button>
         </div>
         
-        <div id="gps-status">GPS: CONNECTED</div>
+        <div id="gps-status">GPS: DISCONNECTED</div>
 
         <div class="speed-gauge-container">
             <svg class="speed-svg" width="220" height="220">
@@ -491,12 +365,6 @@
                 <span id="speed-val" class="speed-value">0</span>
                 <span class="speed-unit">MPH</span>
             </div>
-        </div>
-
-        <!-- Live Map Section -->
-        <div id="map-card">
-            <div id="map-title">Lough Erne Journey Map & Track</div>
-            <div id="map"></div>
         </div>
 
         <div class="grid-header-row">
@@ -519,268 +387,46 @@
                 <button type="button" class="btn-orange" onclick="sendRefillCommand()">Reset Full</button>
             </div>
         </div>
-
-        <!-- Historical Daily Journey Logs -->
-        <div class="journey-logs-section">
-            <div class="section-label" style="margin-bottom: 12px;">Daily Journey Logs</div>
-            <div id="journey-logs-container">
-                <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">Loading journey records...</div>
-            </div>
-        </div>
     </div>
 
     <script>
-        // --- 1. SUPABASE CONFIGURATION ---
-        const SUPABASE_URL = "https://cgssprxbklhkoscvclux.supabase.co/";       
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnc3Nwcnhia2xoa29zY3ZjbHV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTYyNzMsImV4cCI6MjEwMDgzMjI3M30.Bua2rEmjUkW-ZUJjAOyxFk95dXgQFxJNMG5CwbDffdc";  
-        
-        let supabaseClient = null;
-        if (typeof supabase !== 'undefined' && SUPABASE_URL) {
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        }
+        const NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        const NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-        // --- 2. GAUGE REGISTRY & BLE/MAP SETUP ---
         const GAUGE_REGISTRY = {
-            "fuel_mgmt":        { name: "Fuel Level",        unit: " L",    hasProgress: true,  isDefault: true },
-            "engine_rpm":       { name: "Engine Speed",    unit: " RPM",  hasProgress: true,  isDefault: true },
-            "throttle_percent": { name: "Throttle",        unit: "%",     hasProgress: true,  isDefault: true },
-            "run_time_seconds": { name: "Run Time",        unit: "",      hasProgress: false, isDefault: true },
-            "coolant_temp":     { name: "Coolant Temp",    unit: " °C",   hasProgress: false, isDefault: false },
+            "fuel_mgmt":        { name: "Fuel Level",     unit: " L",    hasProgress: true,  isDefault: true },
+            "engine_rpm":       { name: "Engine Speed",   unit: " RPM",  hasProgress: true,  isDefault: true },
+            "throttle_percent": { name: "Throttle",       unit: "%",     hasProgress: true,  isDefault: true },
+            "run_time_seconds": { name: "Run Time",       unit: "",      hasProgress: false, isDefault: true },
+            "coolant_temp":     { name: "Coolant Temp",   unit: " °C",   hasProgress: false, isDefault: false },
             "oil_pressure":     { name: "Engine Oil Press",unit: " kPa",  hasProgress: false, isDefault: false },
-            "battery_volt":     { name: "Battery Voltage", unit: " V",    hasProgress: false, isDefault: false },
-            "engine_hours":     { name: "Engine Hours",    unit: " hrs",  hasProgress: false, isDefault: false }
+            "battery_volt":     { name: "Battery Voltage",unit: " V",    hasProgress: false, isDefault: false },
+            "engine_hours":     { name: "Engine Hours",   unit: " hrs",  hasProgress: false, isDefault: false },
+            "intake_temp":      { name: "Intake Air Temp",unit: " °C",   hasProgress: false, isDefault: false },
+            "fuel_rate":        { name: "Fuel Rate",      unit: " L/h",  hasProgress: false, isDefault: false },
+            "j1939_fuel_level": { name: "Fuel Level (J)", unit: " %",    hasProgress: true,  isDefault: false },
+            "zo_handshake":     { name: "ZeroOff Sync",   unit: "",      hasProgress: false, isDefault: false },
+            "security_heart":   { name: "Security Auth",  unit: "",      hasProgress: false, isDefault: false },
+            "zo_speed":         { name: "ZeroOff SOG",    unit: " mph",  hasProgress: false, isDefault: false }
         };
 
         let activeLayout = [];
         let isEditing = false;
         const circumference = 2 * Math.PI * 90;
 
-        // Map Variables
-        let map, routePolyline, boatMarker;
-        let routeCoordinates = [];
-        let dayMapInstances = {};
-
-        function initMap() {
-            map = L.map('map').setView([54.3711, -7.6580], 12);
-            
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                className: 'dark-tiles',
-                attribution: '&copy; OpenStreetMap'
-            }).addTo(map);
-
-            routePolyline = L.polyline([], {
-                color: '#ff5500',
-                weight: 5,
-                opacity: 0.9,
-                lineJoin: 'round'
-            }).addTo(map);
-
-            setTimeout(() => { map.invalidateSize(); }, 300);
-        }
-
-        // --- 3. FETCH HISTORICAL JOURNEY & TELEMETRY FROM SUPABASE ---
-        async function loadHistoricalJourney() {
-            if (!supabaseClient) {
-                console.error("Supabase client is not initialized.");
-                renderDailyJourneyLogs([]);
-                return;
-            }
-
-            try {
-                const { data, error } = await supabaseClient
-                    .from('telemetry_logs')
-                    .select('*')
-                    .order('created_at', { ascending: true })
-                    .limit(1000);
-
-                if (error) {
-                    console.error("Error fetching telemetry data:", error);
-                    renderDailyJourneyLogs([]);
-                    return;
-                }
-
-                if (!data || data.length === 0) {
-                    document.getElementById('journey-logs-container').innerHTML = 
-                        '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No journey records found in Supabase.</div>';
-                    return;
-                }
-
-                // Update Map
-                routeCoordinates = data
-                    .filter(row => row.latitude && row.longitude)
-                    .map(row => [row.latitude, row.longitude]);
-
-                if (routeCoordinates.length > 0) {
-                    routePolyline.setLatLngs(routeCoordinates);
-                    map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
-
-                    const lastRow = data[data.length - 1];
-                    
-                    if (boatMarker) {
-                        boatMarker.setLatLng([lastRow.latitude, lastRow.longitude]);
-                    } else {
-                        boatMarker = L.circleMarker([lastRow.latitude, lastRow.longitude], {
-                            color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
-                        }).addTo(map);
-                    }
-
-                    updateLastUpdatedTimestamp(new Date(lastRow.created_at));
-                    
-                    // Update current gauge values based on latest log entry
-                    updateDashboardWithLatestEntry(lastRow);
-                }
-
-                renderDailyJourneyLogs(data);
-
-            } catch (err) {
-                console.error("Supabase fetch failed:", err);
-                renderDailyJourneyLogs([]);
-            }
-        }
-
-        function updateDashboardWithLatestEntry(latest) {
-            if (!latest) return;
-
-            // Speed gauge
-            if (latest.speed_mph !== undefined) {
-                document.getElementById('speed-val').innerText = Math.round(latest.speed_mph);
-                const speedRing = document.getElementById('speed-ring');
-                let speedPercent = Math.min(1, Math.max(0, latest.speed_mph / 50));
-                speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
-            }
-
-            // Instrument Cards
-            activeLayout.forEach(key => {
-                const valEl = document.getElementById(`val-${key}`);
-                const subEl = document.getElementById(`sub-${key}`);
-                const pbEl = document.getElementById(`pb-${key}`);
-
-                if (!valEl) return;
-
-                if (key === 'fuel_mgmt' && latest.fuel_liters !== undefined) {
-                    const percent = latest.fuel_percent !== undefined ? latest.fuel_percent : 0;
-                    valEl.innerText = `${percent}%`;
-                    if (subEl) subEl.innerText = `${latest.fuel_liters} L`;
-                    if (pbEl) pbEl.style.width = `${percent}%`;
-                } else if (key === 'engine_rpm' && latest.rpm !== undefined) {
-                    valEl.innerText = latest.rpm;
-                    if (pbEl) pbEl.style.width = `${Math.min(100, (latest.rpm / 6000) * 100)}%`;
-                } else if (key === 'throttle_percent' && latest.throttle !== undefined) {
-                    valEl.innerText = `${latest.throttle}%`;
-                    if (pbEl) pbEl.style.width = `${latest.throttle}%`;
-                } else if (latest[key] !== undefined) {
-                    valEl.innerText = latest[key] + (GAUGE_REGISTRY[key].unit || '');
-                }
-            });
-        }
-
-        function renderDailyJourneyLogs(logs) {
-            const container = document.getElementById('journey-logs-container');
-            if (!logs || logs.length === 0) {
-                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No journey records found.</div>';
-                return;
-            }
-
-            const grouped = {};
-            logs.forEach(log => {
-                const dateKey = new Date(log.created_at).toISOString().split('T')[0];
-                if (!grouped[dateKey]) grouped[dateKey] = [];
-                grouped[dateKey].push(log);
-            });
-
-            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-
-            container.innerHTML = sortedDates.map((dateKey, index) => {
-                const dayLogs = grouped[dateKey];
-                const tripsCount = dayLogs.length;
-
-                const fuelStart = dayLogs[0].fuel_liters || 0;
-                const fuelEnd = dayLogs[dayLogs.length - 1].fuel_liters || 0;
-                const fuelUsed = Math.max(0, (fuelStart - fuelEnd)).toFixed(1);
-
-                const formattedDate = new Date(dateKey).toLocaleDateString('en-GB', {
-                    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-                });
-
-                return `
-                    <div class="journey-day-card" id="day-card-${index}">
-                        <div class="journey-day-header" onclick="toggleDayAccordion(${index}, '${dateKey}')">
-                            <div class="day-info">
-                                <div class="day-date">${formattedDate}</div>
-                                <div class="day-meta">${tripsCount} GPS points aggregated</div>
-                            </div>
-                            <div class="day-fuel-pill">
-                                <span>${fuelUsed > 0 ? fuelUsed + ' L Used' : 'Minimal Fuel'}</span>
-                                <span class="toggle-arrow">▼</span>
-                            </div>
-                        </div>
-                        <div class="journey-day-content" id="day-content-${index}">
-                            <div class="day-map-container" id="day-map-${index}"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            window.dailyLogsGrouped = grouped;
-            window.sortedDates = sortedDates;
-        }
-
-        function toggleDayAccordion(index, dateKey) {
-            const card = document.getElementById(`day-card-${index}`);
-            const content = document.getElementById(`day-content-${index}`);
-            const isOpen = card.classList.contains('active');
-
-            if (isOpen) {
-                card.classList.remove('active');
-                content.style.display = 'none';
-            } else {
-                card.classList.add('active');
-                content.style.display = 'block';
-
-                setTimeout(() => {
-                    if (!dayMapInstances[index]) {
-                        const dayMap = L.map(`day-map-${index}`).setView([54.3711, -7.6580], 12);
-                        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            maxZoom: 19,
-                            className: 'dark-tiles',
-                            attribution: '&copy; OpenStreetMap'
-                        }).addTo(dayMap);
-
-                        const dayLogs = window.dailyLogsGrouped[dateKey];
-                        const coords = dayLogs
-                            .filter(l => l.latitude && l.longitude)
-                            .map(l => [l.latitude, l.longitude]);
-
-                        if (coords.length > 0) {
-                            const polyline = L.polyline(coords, {
-                                color: '#ff5500',
-                                weight: 4,
-                                opacity: 0.95
-                            }).addTo(dayMap);
-                            dayMap.fitBounds(polyline.getBounds(), { padding: [15, 15] });
-                        }
-                        dayMapInstances[index] = dayMap;
-                    } else {
-                        dayMapInstances[index].invalidateSize();
-                    }
-                }, 100);
-            }
-        }
-
-        function updateLastUpdatedTimestamp(dateObj) {
-            if (isNaN(dateObj.getTime())) return;
-            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const dateStr = dateObj.toLocaleDateString('en-GB');
-            document.getElementById('last-updated-text').innerText = `Last updated at ${timeStr} ${dateStr}`;
-        }
+        let bleDevice = null;
+        let bleServer = null;
+        let rxCharacteristic = null;
+        let txCharacteristic = null;
+        let isConnected = false;
+        let receiveBuffer = "";
 
         function initLayoutConfig() {
             let stored = localStorage.getItem('nautique_layout_v2');
             if (stored) {
-                try { activeLayout = JSON.parse(stored); } catch(e) { activeLayout = []; }
-            }
-            if (!activeLayout || activeLayout.length === 0) {
+                activeLayout = JSON.parse(stored);
+            } else {
                 activeLayout = Object.keys(GAUGE_REGISTRY).filter(k => GAUGE_REGISTRY[k].isDefault);
                 saveLayoutConfig();
             }
@@ -803,15 +449,23 @@
                 card.setAttribute('draggable', isEditing ? 'true' : 'false');
                 card.setAttribute('data-key', key);
 
+                setupTouchDragDrop(card);
+
                 let progressHtml = meta.hasProgress ? `
                     <div class="progress-track" style="margin-top:6px;">
                         <div id="pb-${key}" class="progress-bar" style="width: 0%"></div>
                     </div>` : '';
 
+                let subLabel = "Telemetry Data";
+                if(key === 'fuel_mgmt') subLabel = "-- / 80 L";
+                if(key === 'engine_rpm') subLabel = "Tachometer";
+                if(key === 'throttle_percent') subLabel = "Position Index";
+                if(key === 'run_time_seconds') subLabel = "Active Hours";
+
                 card.innerHTML = `
                     <div class="card-label">${meta.name}</div>
                     <div id="val-${key}" class="card-val">--</div>
-                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">No Data</div>
+                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">${subLabel}</div>
                     ${progressHtml}
                     <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
                 `;
@@ -838,11 +492,13 @@
                 btn.classList.add('active');
                 grid.classList.add('edit-mode');
                 addPanel.style.display = 'block';
+                document.querySelectorAll('.gauge-card').forEach(c => c.setAttribute('draggable', 'true'));
             } else {
                 btn.innerText = "Edit";
                 btn.classList.remove('active');
                 grid.classList.remove('edit-mode');
                 addPanel.style.display = 'none';
+                document.querySelectorAll('.gauge-card').forEach(c => c.setAttribute('draggable', 'false'));
                 saveLayoutConfig();
             }
         }
@@ -853,7 +509,6 @@
                 activeLayout.push(selector.value);
                 renderGaugeGrid();
                 saveLayoutConfig();
-                loadHistoricalJourney();
             }
         }
 
@@ -862,12 +517,138 @@
             activeLayout = activeLayout.filter(k => k !== key);
             renderGaugeGrid();
             saveLayoutConfig();
-            loadHistoricalJourney();
+        }
+
+        let dragSrcElement = null;
+
+        function setupTouchDragDrop(el) {
+            el.addEventListener('dragstart', function(e) {
+                if(!isEditing) return e.preventDefault();
+                this.classList.add('dragging');
+                dragSrcElement = this;
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            el.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+            });
+            el.addEventListener('dragover', function(e) {
+                if (e.preventDefault) e.preventDefault();
+                return false;
+            });
+            el.addEventListener('drop', function(e) {
+                if (e.stopPropagation) e.stopPropagation();
+                if (dragSrcElement !== this) {
+                    reorderInternalLayout(dragSrcElement.getAttribute('data-key'), this.getAttribute('data-key'));
+                }
+                return false;
+            });
+
+            el.addEventListener('touchstart', function() {
+                if(!isEditing) return;
+                dragSrcElement = this;
+                this.classList.add('dragging');
+            }, {passive: true});
+
+            el.addEventListener('touchmove', function(e) {
+                if(!isEditing || !dragSrcElement) return;
+                let touch = e.touches[0];
+                let target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (!target) return;
+                let cardTarget = target.closest('.gauge-card');
+                if(cardTarget && cardTarget !== dragSrcElement) {
+                    reorderInternalLayout(dragSrcElement.getAttribute('data-key'), cardTarget.getAttribute('data-key'));
+                }
+            }, {passive: true});
+
+            el.addEventListener('touchend', function() {
+                if(dragSrcElement) {
+                    dragSrcElement.classList.remove('dragging');
+                    dragSrcElement = null;
+                }
+            });
+        }
+
+        function reorderInternalLayout(srcKey, targetKey) {
+            let srcIdx = activeLayout.indexOf(srcKey);
+            let targetIdx = activeLayout.indexOf(targetKey);
+            if(srcIdx > -1 && targetIdx > -1) {
+                activeLayout.splice(srcIdx, 1);
+                activeLayout.splice(targetIdx, 0, srcKey);
+                renderGaugeGrid();
+            }
         }
 
         async function toggleBluetoothConnection() {
-            // Placeholder for Web Bluetooth API execution
-            alert("Bluetooth pairing requested. Connect your BLE telemetry hardware device.");
+            if (isConnected) {
+                disconnectBluetooth();
+                return;
+            }
+
+            try {
+                if (!('bluetooth' in navigator)) {
+                    alert('Web Bluetooth API is not supported. Please use Bluefy or a compatible Web BLE browser.');
+                    return;
+                }
+
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'Nautique-Telemetry' }],
+                    optionalServices: [NUS_SERVICE_UUID]
+                });
+
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                bleServer = await bleDevice.gatt.connect();
+                const service = await bleServer.getPrimaryService(NUS_SERVICE_UUID);
+
+                rxCharacteristic = await service.getCharacteristic(NUS_RX_UUID);
+                txCharacteristic = await service.getCharacteristic(NUS_TX_UUID);
+
+                await txCharacteristic.startNotifications();
+                txCharacteristic.addEventListener('characteristicvaluechanged', handleBLEData);
+
+                isConnected = true;
+                const btBtn = document.getElementById('bt-btn');
+                btBtn.innerText = "BLE Connected";
+                btBtn.classList.add('connected');
+            } catch (err) {
+                console.error("BLE Connection Error:", err);
+            }
+        }
+
+        function onDisconnected() {
+            isConnected = false;
+            const btBtn = document.getElementById('bt-btn');
+            btBtn.innerText = "Pair Bluetooth Device";
+            btBtn.classList.remove('connected');
+
+            document.getElementById('gps-status').innerText = "GPS: DISCONNECTED";
+            document.getElementById('gps-status').style.color = "var(--text-muted)";
+        }
+
+        function disconnectBluetooth() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
+            }
+            onDisconnected();
+        }
+
+        function handleBLEData(event) {
+            let decoder = new TextDecoder('utf-8');
+            let chunk = decoder.decode(event.target.value);
+            receiveBuffer += chunk;
+
+            let lines = receiveBuffer.split('\n');
+            receiveBuffer = lines.pop();
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('{') && line.endsWith('}')) {
+                    try {
+                        const data = JSON.parse(line);
+                        updateDashboard(data);
+                    } catch (e) { console.error("JSON Error", e); }
+                }
+            });
         }
 
         async function sendRefillCommand() {
@@ -875,32 +656,78 @@
             const liters = parseFloat(input.value);
 
             if (isNaN(liters) || liters <= 0) {
-                alert("Please enter a valid number of liters.");
+                alert("Please enter a valid amount of liters.");
                 return;
             }
 
-            if (supabaseClient) {
-                try {
-                    const { error } = await supabaseClient
-                        .from('telemetry_logs')
-                        .insert([{ fuel_liters: liters, event_type: 'refill' }]);
-
-                    if (error) throw error;
-
-                    alert(`Refill Logged: ${liters} L saved to Supabase.`);
-                    input.value = '';
-                    loadHistoricalJourney();
-                } catch (err) {
-                    alert(`Failed to save refill to Supabase: ${err.message}`);
-                }
+            if (!isConnected || !rxCharacteristic) {
+                alert("Bluetooth connection missing.");
+                return;
             }
+
+            const encoder = new TextEncoder();
+            const commandData = encoder.encode(`REFILL:${liters}\n`);
+            await rxCharacteristic.writeValue(commandData);
+            
+            input.value = '';
+            alert(`Sent Refill Command: ${liters} L`);
+        }
+
+        function updateDashboard(data) {
+            const speedValEl = document.getElementById('speed-val');
+            const speedRing = document.getElementById('speed-ring');
+            const gpsStatus = document.getElementById('gps-status');
+
+            if (data.gps_valid) {
+                gpsStatus.innerText = "GPS: LOCKED (GARMIN)";
+                gpsStatus.style.color = "#00ff66";
+                let mph = data.gps_speed || 0;
+                speedValEl.innerText = Math.round(mph);
+                let speedPercent = Math.min(mph / 50, 1);
+                speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
+            } else {
+                gpsStatus.innerText = "GPS: SEARCHING...";
+                gpsStatus.style.color = "#ff8800";
+                speedValEl.innerText = "0";
+                speedRing.style.strokeDashoffset = circumference;
+            }
+
+            activeLayout.forEach(key => {
+                const valEl = document.getElementById(`val-${key}`);
+                const pbEl = document.getElementById(`pb-${key}`);
+                const subEl = document.getElementById(`sub-${key}`);
+                if (!valEl) return;
+
+                let value = data[key];
+                let unit = GAUGE_REGISTRY[key].unit;
+
+                if (value === undefined || value === null) {
+                    valEl.innerText = "--";
+                    return;
+                }
+
+                if (key === 'fuel_mgmt') {
+                    valEl.innerText = data.fuel_percent + '%';
+                    if(subEl) subEl.innerText = data.fuel_liters + ' / 80 L';
+                    if(pbEl) pbEl.style.width = data.fuel_percent + '%';
+                } else if (key === 'run_time_seconds') {
+                    valEl.innerText = data.runtime;
+                } else {
+                    valEl.innerText = value + unit;
+                    
+                    if (pbEl) {
+                        let pct = 0;
+                        if (key === 'engine_rpm') pct = Math.min((value / 6000) * 100, 100);
+                        else if (key === 'throttle_percent' || key === 'j1939_fuel_level') pct = value;
+                        pbEl.style.width = pct + '%';
+                    }
+                }
+            });
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            initMap();
             initLayoutConfig();
             renderGaugeGrid();
-            loadHistoricalJourney();
         });
     </script>
 </body>
