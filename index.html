@@ -4,9 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nelly the Nautique Dashboard</title>
+    
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Leaflet JS Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
     <style>
         :root {
@@ -33,7 +43,7 @@
         }
 
         .dashboard { 
-            max-width: 460px; 
+            max-width: 480px; 
             margin: 10px auto; 
             background: var(--panel-bg); 
             padding: 25px 20px; 
@@ -62,8 +72,17 @@
             text-transform: uppercase; 
             letter-spacing: 3px; 
             font-weight: 800; 
-            margin-bottom: 15px; 
+            margin-bottom: 8px; 
             text-shadow: 0 0 10px var(--orange-glow);
+        }
+
+        .last-updated-header {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
         }
 
         .bt-connection-bar {
@@ -137,6 +156,33 @@
             color: var(--text-muted);
             font-weight: 600;
             margin-top: 2px;
+        }
+
+        #map-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 10px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 85, 0, 0.2);
+            text-align: left;
+        }
+
+        #map-title {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            padding-left: 5px;
+        }
+
+        #map {
+            width: 100%;
+            height: 240px;
+            border-radius: 14px;
+            background: #121317;
+            z-index: 1;
         }
 
         .grid-header-row {
@@ -238,14 +284,6 @@
             cursor: move;
             animation: gentleWobble 0.3s infinite alternate;
         }
-        .edit-mode .gauge-card::after {
-            content: '☰';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            color: var(--nautique-orange);
-            font-size: 0.8rem;
-        }
 
         .card-delete-btn {
             display: none;
@@ -262,14 +300,11 @@
             cursor: pointer;
             z-index: 10;
         }
-        .edit-mode .card-delete-btn {
-            display: block;
-        }
+        .edit-mode .card-delete-btn { display: block; }
         
         .gauge-card.dragging {
             opacity: 0.5;
             transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         }
 
         @keyframes gentleWobble {
@@ -353,6 +388,7 @@
     <div class="dashboard">
         <h1>Nelly the Nautique</h1>
         <div class="subtitle">Multi-Telemetry Hub</div>
+        <div class="last-updated-header" id="last-updated-text">Last updated: --</div>
 
         <div class="bt-connection-bar">
             <button id="bt-btn" class="btn-connect" onclick="toggleBluetoothConnection()">Pair Bluetooth Device</button>
@@ -369,6 +405,12 @@
                 <span id="speed-val" class="speed-value">0</span>
                 <span class="speed-unit">MPH</span>
             </div>
+        </div>
+
+        <!-- Map Section -->
+        <div id="map-card">
+            <div id="map-title">Journey Map & GPS Track</div>
+            <div id="map"></div>
         </div>
 
         <div class="grid-header-row">
@@ -394,7 +436,54 @@
     </div>
 
     <script>
-        // Nordic UART Service (NUS) UUIDs
+        // --- 1. SUPABASE CONFIGURATION ---
+        const SUPABASE_URL = "https://cgssprxbklhkoscvclux.supabase.co/";       // <--- PASTE YOUR SUPABASE URL HERE
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnc3Nwcnhia2xoa29zY3ZjbHV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTYyNzMsImV4cCI6MjEwMDgzMjI3M30.Bua2rEmjUkW-ZUJjAOyxFk95dXgQFxJNMG5CwbDffdc";  // <--- PASTE YOUR SUPABASE ANON KEY HERE
+        const supabase = (SUPABASE_URL !== "YOUR_SUPABASE_URL") ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+        // --- 2. INDEXED DB OFFLINE SYNC SETUP ---
+        let db;
+        const dbReq = indexedDB.open("NautiqueOfflineQueue", 1);
+        dbReq.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains("logs")) {
+                db.createObjectStore("logs", { autoIncrement: true });
+            }
+        };
+        dbReq.onsuccess = (e) => {
+            db = e.target.result;
+            attemptOfflineSync();
+        };
+
+        function queueOfflineLog(payload) {
+            if (!db) return;
+            const tx = db.transaction("logs", "readwrite");
+            tx.objectStore("logs").add(payload);
+        }
+
+        async function attemptOfflineSync() {
+            if (!navigator.onLine || !supabase || !db) return;
+            const tx = db.transaction("logs", "readonly");
+            const store = tx.objectStore("logs");
+            const getAllReq = store.getAll();
+
+            getAllReq.onsuccess = async () => {
+                const pendingLogs = getAllReq.result;
+                if (pendingLogs.length > 0) {
+                    const { error } = await supabase.from('telemetry_logs').insert(pendingLogs);
+                    if (!error) {
+                        const clearTx = db.transaction("logs", "readwrite");
+                        clearTx.objectStore("logs").clear();
+                        console.log(`Synced ${pendingLogs.length} offline records to Supabase.`);
+                        loadHistoricalJourney();
+                    }
+                }
+            };
+        }
+
+        window.addEventListener('online', attemptOfflineSync);
+
+        // --- 3. BLE & MAP SETUP ---
         const NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
         const NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
         const NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -420,13 +509,61 @@
         let isEditing = false;
         const circumference = 2 * Math.PI * 90;
 
-        // Bluetooth variables
         let bleDevice = null;
-        let bleServer = null;
         let rxCharacteristic = null;
         let txCharacteristic = null;
         let isConnected = false;
         let receiveBuffer = "";
+
+        // Map Variables
+        let map, routePolyline, boatMarker;
+        let routeCoordinates = [];
+        let lastDatabaseSaveTime = 0;
+
+        function initMap() {
+            map = L.map('map').setView([51.505, -0.09], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                subdomains: 'abcd',
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
+
+            routePolyline = L.polyline([], {
+                color: '#ff5500',
+                weight: 5,
+                opacity: 0.9,
+                lineJoin: 'round'
+            }).addTo(map);
+        }
+
+        async function loadHistoricalJourney() {
+            if (!supabase) return;
+            const { data, error } = await supabase
+                .from('telemetry_logs')
+                .select('*')
+                .order('created_at', { ascending: true })
+                .limit(1000);
+
+            if (error || !data || data.length === 0) return;
+
+            routeCoordinates = data
+                .filter(row => row.latitude && row.longitude)
+                .map(row => [row.latitude, row.longitude]);
+
+            if (routeCoordinates.length > 0) {
+                routePolyline.setLatLngs(routeCoordinates);
+                map.fitBounds(routePolyline.getBounds(), { padding: [20, 20] });
+
+                const lastRow = data[data.length - 1];
+                updateLastUpdatedTimestamp(new Date(lastRow.created_at));
+            }
+        }
+
+        function updateLastUpdatedTimestamp(dateObj) {
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = dateObj.toLocaleDateString('en-GB');
+            document.getElementById('last-updated-text').innerText = `Last updated at ${timeStr} ${dateStr}`;
+        }
 
         function initLayoutConfig() {
             let stored = localStorage.getItem('nautique_layout_v2');
@@ -454,8 +591,6 @@
                 card.className = 'gauge-card';
                 card.setAttribute('draggable', isEditing ? 'true' : 'false');
                 card.setAttribute('data-key', key);
-
-                setupTouchDragDrop(card);
 
                 let progressHtml = meta.hasProgress ? `
                     <div class="progress-track" style="margin-top:6px;">
@@ -498,13 +633,11 @@
                 btn.classList.add('active');
                 grid.classList.add('edit-mode');
                 addPanel.style.display = 'block';
-                document.querySelectorAll('.gauge-card').forEach(c => c.setAttribute('draggable', 'true'));
             } else {
                 btn.innerText = "Edit";
                 btn.classList.remove('active');
                 grid.classList.remove('edit-mode');
                 addPanel.style.display = 'none';
-                document.querySelectorAll('.gauge-card').forEach(c => c.setAttribute('draggable', 'false'));
                 saveLayoutConfig();
             }
         }
@@ -525,67 +658,7 @@
             saveLayoutConfig();
         }
 
-        let dragSrcElement = null;
-
-        function setupTouchDragDrop(el) {
-            el.addEventListener('dragstart', function(e) {
-                if(!isEditing) return e.preventDefault();
-                this.classList.add('dragging');
-                dragSrcElement = this;
-                e.dataTransfer.effectAllowed = 'move';
-            });
-            el.addEventListener('dragend', function() {
-                this.classList.remove('dragging');
-                document.querySelectorAll('.gauge-card').forEach(c => c.classList.remove('over'));
-            });
-            el.addEventListener('dragover', function(e) {
-                if (e.preventDefault) e.preventDefault();
-                return false;
-            });
-            el.addEventListener('drop', function(e) {
-                if (e.stopPropagation) e.stopPropagation();
-                if (dragSrcElement !== this) {
-                    reorderInternalLayout(dragSrcElement.getAttribute('data-key'), this.getAttribute('data-key'));
-                }
-                return false;
-            });
-
-            el.addEventListener('touchstart', function(e) {
-                if(!isEditing) return;
-                dragSrcElement = this;
-                this.classList.add('dragging');
-            }, {passive: true});
-
-            el.addEventListener('touchmove', function(e) {
-                if(!isEditing || !dragSrcElement) return;
-                let touch = e.touches[0];
-                let target = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (!target) return;
-                let cardTarget = target.closest('.gauge-card');
-                if(cardTarget && cardTarget !== dragSrcElement) {
-                    reorderInternalLayout(dragSrcElement.getAttribute('data-key'), cardTarget.getAttribute('data-key'));
-                }
-            }, {passive: true});
-
-            el.addEventListener('touchend', function() {
-                if(dragSrcElement) {
-                    dragSrcElement.classList.remove('dragging');
-                    dragSrcElement = null;
-                }
-            });
-        }
-
-        function reorderInternalLayout(srcKey, targetKey) {
-            let srcIdx = activeLayout.indexOf(srcKey);
-            let targetIdx = activeLayout.indexOf(targetKey);
-            if(srcIdx > -1 && targetIdx > -1) {
-                activeLayout.splice(srcIdx, 1);
-                activeLayout.splice(targetIdx, 0, srcKey);
-                renderGaugeGrid();
-            }
-        }
-
-        // --- Web Bluetooth (BLE) Handler ---
+        // --- BLE HANDLER ---
         async function toggleBluetoothConnection() {
             if (isConnected) {
                 disconnectBluetooth();
@@ -594,7 +667,7 @@
 
             try {
                 if (!('bluetooth' in navigator)) {
-                    alert('Web Bluetooth API is not supported. Please open this page inside the Bluefy Web BLE app on iOS.');
+                    alert('Web Bluetooth API is not supported. Use Bluefy browser on iOS or Chrome on Android.');
                     return;
                 }
 
@@ -605,8 +678,8 @@
 
                 bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-                bleServer = await bleDevice.gatt.connect();
-                const service = await bleServer.getPrimaryService(NUS_SERVICE_UUID);
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(NUS_SERVICE_UUID);
 
                 rxCharacteristic = await service.getCharacteristic(NUS_RX_UUID);
                 txCharacteristic = await service.getCharacteristic(NUS_TX_UUID);
@@ -619,7 +692,7 @@
                 btBtn.innerText = "BLE Connected";
                 btBtn.classList.add('connected');
             } catch (err) {
-                console.error("BLE connection failed:", err);
+                console.error("BLE Connection Error:", err);
             }
         }
 
@@ -642,11 +715,10 @@
 
         function handleBLEData(event) {
             let decoder = new TextDecoder('utf-8');
-            let chunk = decoder.decode(event.target.value);
-            receiveBuffer += chunk;
+            receiveBuffer += decoder.decode(event.target.value);
 
             let lines = receiveBuffer.split('\n');
-            receiveBuffer = lines.pop(); // Keep partial line buffer
+            receiveBuffer = lines.pop();
 
             lines.forEach(line => {
                 line = line.trim();
@@ -654,35 +726,13 @@
                     try {
                         const data = JSON.parse(line);
                         updateDashboard(data);
-                    } catch (e) { console.error("JSON Parsing Error", e); }
+                        processDatabaseSync(data);
+                    } catch (e) { console.error("JSON Error", e); }
                 }
             });
         }
 
-        async function sendRefillCommand() {
-            const input = document.getElementById('refill-input');
-            const liters = parseFloat(input.value);
-
-            if (isNaN(liters) || liters <= 0) {
-                alert("Please enter a valid number of liters.");
-                return;
-            }
-
-            if (!isConnected || !rxCharacteristic) {
-                alert("Bluetooth is not connected.");
-                return;
-            }
-
-            const encoder = new TextEncoder();
-            const commandData = encoder.encode(`REFILL:${liters}\n`);
-            await rxCharacteristic.writeValue(commandData);
-            
-            input.value = '';
-            alert(`Sent Refill Command: ${liters} L`);
-        }
-
         function updateDashboard(data) {
-            // Update Speedometer & GPS
             const speedValEl = document.getElementById('speed-val');
             const speedRing = document.getElementById('speed-ring');
             const gpsStatus = document.getElementById('gps-status');
@@ -694,6 +744,20 @@
                 speedValEl.innerText = Math.round(mph);
                 let speedPercent = Math.min(mph / 50, 1);
                 speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
+
+                // Update Map Position
+                if (data.gps_lat && data.gps_lng && data.gps_lat !== 0) {
+                    const latLng = [data.gps_lat, data.gps_lng];
+                    routeCoordinates.push(latLng);
+                    routePolyline.setLatLngs(routeCoordinates);
+
+                    if (!boatMarker) {
+                        boatMarker = L.circleMarker(latLng, { color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 7 }).addTo(map);
+                        map.setView(latLng, 15);
+                    } else {
+                        boatMarker.setLatLng(latLng);
+                    }
+                }
             } else {
                 gpsStatus.innerText = "GPS: SEARCHING...";
                 gpsStatus.style.color = "#ff8800";
@@ -701,7 +765,6 @@
                 speedRing.style.strokeDashoffset = circumference;
             }
 
-            // Update Instrument Grid Items
             activeLayout.forEach(key => {
                 const valEl = document.getElementById(`val-${key}`);
                 const pbEl = document.getElementById(`pb-${key}`);
@@ -724,7 +787,6 @@
                     valEl.innerText = data.runtime;
                 } else {
                     valEl.innerText = value + unit;
-                    
                     if (pbEl) {
                         let pct = 0;
                         if (key === 'engine_rpm') pct = Math.min((value / 6000) * 100, 100);
@@ -733,11 +795,67 @@
                     }
                 }
             });
+
+            updateLastUpdatedTimestamp(new Date());
+        }
+
+        async function processDatabaseSync(data) {
+            const now = Date.now();
+            // Store a database snapshot once every 5 seconds to reduce write volume
+            if (now - lastDatabaseSaveTime < 5000) return;
+            lastDatabaseSaveTime = now;
+
+            const record = {
+                latitude: data.gps_lat || null,
+                longitude: data.gps_lng || null,
+                fuel_liters: data.fuel_liters,
+                fuel_percent: data.fuel_percent,
+                engine_rpm: data.engine_rpm,
+                throttle_percent: data.throttle_percent,
+                coolant_temp: data.coolant_temp,
+                oil_pressure: data.oil_pressure,
+                battery_volt: data.battery_volt,
+                engine_hours: data.engine_hours,
+                gps_speed: data.gps_speed,
+                trip_seconds: data.run_time_seconds
+            };
+
+            if (navigator.onLine && supabase) {
+                const { error } = await supabase.from('telemetry_logs').insert([record]);
+                if (error) {
+                    console.warn("Supabase insert failed, queueing offline:", error);
+                    queueOfflineLog(record);
+                }
+            } else {
+                queueOfflineLog(record);
+            }
+        }
+
+        async function sendRefillCommand() {
+            const input = document.getElementById('refill-input');
+            const liters = parseFloat(input.value);
+
+            if (isNaN(liters) || liters <= 0) {
+                alert("Please enter a valid number of liters.");
+                return;
+            }
+
+            if (!isConnected || !rxCharacteristic) {
+                alert("Bluetooth is not connected.");
+                return;
+            }
+
+            const encoder = new TextEncoder();
+            await rxCharacteristic.writeValue(encoder.encode(`REFILL:${liters}\n`));
+            input.value = '';
+            alert(`Sent Refill Command: ${liters} L`);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            initMap();
             initLayoutConfig();
             renderGaugeGrid();
+            loadHistoricalJourney();
         });
     </script>
 </body>
