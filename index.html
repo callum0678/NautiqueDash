@@ -1,19 +1,15 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nelly the Nautique - Lough Erne Dashboard</title>
     
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-    
-    <!-- Leaflet CSS for Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
-    <!-- Supabase & Leaflet JS Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
@@ -49,7 +45,7 @@
             padding: 25px 20px; 
             border-radius: 32px; 
             border: 1px solid rgba(255, 85, 0, 0.2); 
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 85, 0, 0.05);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(10px);
             position: relative;
         }
@@ -66,419 +62,63 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .subtitle { 
-            color: var(--nautique-orange); 
-            font-size: 0.8rem; 
-            text-transform: uppercase; 
-            letter-spacing: 3px; 
-            font-weight: 800; 
-            margin-bottom: 8px; 
-            text-shadow: 0 0 10px var(--orange-glow);
-        }
-
-        .last-updated-header {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-        }
-
+        .subtitle { color: var(--nautique-orange); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 3px; font-weight: 800; margin-bottom: 8px; }
+        .last-updated-header { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 15px; text-transform: uppercase; font-weight: 600; }
         .bt-connection-bar { margin-bottom: 12px; }
 
         .btn-connect {
             background: linear-gradient(135deg, #ff5500 0%, #d44400 100%);
-            color: #ffffff;
-            width: 100%;
-            padding: 12px;
-            font-size: 0.85rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(255, 85, 0, 0.3);
-            border: none;
-            font-weight: 800;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: #ffffff; width: 100%; padding: 12px; font-size: 0.85rem;
+            border-radius: 12px; border: none; font-weight: 800; cursor: pointer; text-transform: uppercase;
         }
-
-        .btn-connect.connected {
-            background: #1c1e24;
-            color: var(--connected-green);
-            border: 1px solid var(--connected-green);
-            box-shadow: 0 0 10px rgba(0, 255, 102, 0.2);
-        }
+        .btn-connect.connected { background: #1c1e24; color: var(--connected-green); border: 1px solid var(--connected-green); }
 
         #sync-banner {
-            display: none;
-            font-size: 0.72rem;
-            color: var(--sync-blue);
-            background: rgba(0, 153, 255, 0.1);
-            border: 1px solid var(--sync-blue);
-            border-radius: 8px;
-            padding: 6px;
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
+            display: none; font-size: 0.72rem; color: var(--sync-blue);
+            background: rgba(0, 153, 255, 0.1); border: 1px solid var(--sync-blue);
+            border-radius: 8px; padding: 6px; margin-bottom: 12px; text-transform: uppercase; font-weight: 800;
         }
 
-        .speed-gauge-container {
-            position: relative;
-            width: 220px;
-            height: 220px;
-            margin: 0 auto 20px auto;
-        }
-
+        .speed-gauge-container { position: relative; width: 220px; height: 220px; margin: 0 auto 20px auto; }
         .speed-svg { transform: rotate(-90deg); }
         .speed-track { fill: none; stroke: #17191f; stroke-width: 14; }
         .speed-bar {
-            fill: none;
-            stroke: var(--nautique-orange);
-            stroke-width: 14;
-            stroke-linecap: round;
-            stroke-dasharray: 565.48;
-            stroke-dashoffset: 565.48;
-            transition: stroke-dashoffset 0.3s ease;
-            filter: drop-shadow(0 0 8px var(--nautique-orange));
+            fill: none; stroke: var(--nautique-orange); stroke-width: 14; stroke-linecap: round;
+            stroke-dasharray: 565.48; stroke-dashoffset: 565.48; transition: stroke-dashoffset 0.3s ease;
         }
+        .speed-text-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; }
+        .speed-value { font-family: 'Orbitron', sans-serif; font-size: 4.5rem; font-weight: 900; line-height: 1; color: #ffffff; }
+        .speed-unit { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
 
-        .speed-text-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+        #map-card { background: var(--card-bg); border-radius: 20px; padding: 10px; margin-bottom: 25px; border: 1px solid rgba(255, 85, 0, 0.2); text-align: left; }
+        #map-title { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; margin-bottom: 8px; padding-left: 5px; }
+        #map { width: 100%; height: 240px; border-radius: 14px; background: #121317; z-index: 1; }
+        .dark-tiles { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7); }
 
-        .speed-value {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 4.5rem;
-            font-weight: 900;
-            line-height: 1;
-            color: #ffffff;
-        }
+        .grid-header-row { display: flex; justify-content: space-between; align-items: center; margin: 25px 0 10px 0; padding: 0 5px; }
+        .section-label { color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; }
+        .btn-edit { background: var(--nautique-orange); color: #ffffff; font-size: 0.75rem; padding: 6px 14px; border-radius: 8px; border: none; font-weight: 800; cursor: pointer; }
+        .btn-edit.active { background: #ffffff; color: var(--bg-color); }
 
-        .speed-unit {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-muted);
-            font-weight: 600;
-            margin-top: 2px;
-        }
+        .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; min-height: 50px; }
+        .gauge-card { background: var(--card-bg); padding: 16px 12px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.03); text-align: left; position: relative; }
+        .card-label { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 8px; }
+        .card-val { font-family: 'Orbitron', sans-serif; font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
+        
+        .progress-track { width: 100%; height: 5px; background: #121317; border-radius: 3px; overflow: hidden; }
+        .progress-bar { height: 100%; background: var(--nautique-orange); width: 0%; border-radius: 3px; transition: width 0.3s ease; }
 
-        #map-card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 10px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(255, 85, 0, 0.2);
-            text-align: left;
-        }
+        .add-item-panel { display: none; background: #121317; border: 1px solid rgba(255,255,255,0.05); border-radius: 18px; padding: 15px; margin-bottom: 25px; text-align: left; }
+        .add-item-panel select { width: 100%; padding: 12px; background: var(--card-bg); border: 1px solid #2c2f36; color: white; border-radius: 10px; margin-bottom: 10px; outline: none; }
 
-        #map-title {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
-            margin-bottom: 8px;
-            padding-left: 5px;
-        }
-
-        #map {
-            width: 100%;
-            height: 240px;
-            border-radius: 14px;
-            background: #121317;
-            z-index: 1;
-        }
-
-        .dark-tiles {
-            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
-        }
-
-        .grid-header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 25px 0 10px 0;
-            padding: 0 5px;
-        }
-
-        .section-label {
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-weight: 800;
-        }
-
-        .btn-edit {
-            background: var(--nautique-orange);
-            color: #ffffff;
-            font-size: 0.75rem;
-            padding: 6px 14px;
-            border-radius: 8px;
-            border: none;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(255, 85, 0, 0.2);
-            transition: all 0.2s ease;
-        }
-        .btn-edit.active {
-            background: #ffffff;
-            color: var(--bg-color);
-        }
-
-        .grid-container { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 15px; 
-            margin-bottom: 25px;
-            min-height: 50px;
-        }
-
-        .gauge-card { 
-            background: var(--card-bg); 
-            padding: 16px 12px; 
-            border-radius: 18px; 
-            border: 1px solid rgba(255,255,255,0.03);
-            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
-            text-align: left;
-            position: relative;
-            overflow: hidden;
-            user-select: none;
-            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
-        }
-
-        .card-label { 
-            color: var(--text-muted); 
-            font-size: 0.75rem; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            font-weight: 600;
-            margin-bottom: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .card-val { 
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.35rem; 
-            font-weight: 700; 
-            color: var(--text-main); 
-            margin-bottom: 8px;
-            white-space: nowrap;
-        }
-
-        .progress-track {
-            width: 100%;
-            height: 5px;
-            background: #121317;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: var(--nautique-orange);
-            width: 0%;
-            border-radius: 3px;
-            box-shadow: 0 0 6px var(--nautique-orange);
-            transition: width 0.3s ease;
-        }
-
-        .edit-mode .gauge-card {
-            border: 1px dashed var(--nautique-orange);
-            cursor: move;
-            animation: gentleWobble 0.3s infinite alternate;
-        }
-
-        .card-delete-btn {
-            display: none;
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            background: var(--danger-red);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 2px 6px;
-            font-size: 0.65rem;
-            font-weight: 800;
-            cursor: pointer;
-            z-index: 10;
-        }
-        .edit-mode .card-delete-btn { display: block; }
-
-        @keyframes gentleWobble {
-            0% { transform: rotate(-0.5deg); }
-            100% { transform: rotate(0.5deg); }
-        }
-
-        .add-item-panel {
-            display: none;
-            background: #121317;
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 18px;
-            padding: 15px;
-            margin-bottom: 25px;
-            text-align: left;
-        }
-        .add-item-panel select {
-            width: 100%;
-            padding: 12px;
-            background: var(--card-bg);
-            border: 1px solid #2c2f36;
-            color: white;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-            outline: none;
-        }
-
-        .control-panel { 
-            margin-top: 25px; 
-            padding-top: 20px; 
-            border-top: 1px solid rgba(255,255,255,0.05); 
-            text-align: left; 
-        }
-
+        .control-panel { margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); text-align: left; }
         .flex-group { display: flex; justify-content: space-between; margin-top: 10px; gap: 10px; align-items: center; }
+        input[type="number"] { padding: 14px; font-size: 1rem; flex-grow: 1; border-radius: 14px; border: 1px solid #2c2f36; background: #121317; color: #ffffff; text-align: center; outline: none; }
+        button { padding: 14px 20px; font-size: 0.95rem; border: none; border-radius: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        .btn-orange { background: var(--nautique-orange); color: #ffffff; }
         
-        input[type="number"] { 
-            padding: 14px; 
-            font-size: 1rem; 
-            flex-grow: 1; 
-            border-radius: 14px; 
-            border: 1px solid #2c2f36; 
-            background: #121317; 
-            color: #ffffff; 
-            font-weight: 600;
-            text-align: center; 
-            outline: none;
-        }
-
-        button { 
-            padding: 14px 20px; 
-            font-size: 0.95rem; 
-            border: none; 
-            border-radius: 14px; 
-            font-weight: 800; 
-            cursor: pointer; 
-            font-family: 'Inter', sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .btn-orange { 
-            background: var(--nautique-orange); 
-            color: #ffffff; 
-            box-shadow: 0 4px 15px rgba(255, 85, 0, 0.3);
-        }
-        
-        #gps-status {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-top: -5px;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
-        }
-
-        .journey-logs-section {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            text-align: left;
-        }
-
-        .journey-day-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            margin-bottom: 12px;
-            overflow: hidden;
-            transition: border-color 0.2s ease;
-        }
-
-        .journey-day-card.active {
-            border-color: rgba(255, 85, 0, 0.4);
-        }
-
-        .journey-day-header {
-            padding: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .day-info {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .day-date {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-main);
-        }
-
-        .day-meta {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-
-        .day-fuel-pill {
-            background: rgba(255, 85, 0, 0.15);
-            color: var(--nautique-orange);
-            font-size: 0.78rem;
-            font-weight: 800;
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 85, 0, 0.2);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .toggle-arrow {
-            font-size: 0.8rem;
-            transition: transform 0.3s ease;
-            color: var(--text-muted);
-        }
-
-        .journey-day-card.active .toggle-arrow {
-            transform: rotate(180deg);
-            color: var(--nautique-orange);
-        }
-
-        .journey-day-content {
-            display: none;
-            padding: 0 16px 16px 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.03);
-            background: rgba(18, 19, 23, 0.5);
-        }
-
-        .day-map-container {
-            width: 100%;
-            height: 200px;
-            border-radius: 12px;
-            margin-top: 12px;
-            background: #121317;
-            z-index: 1;
-        }
+        #gps-status { font-size: 0.7rem; color: var(--text-muted); margin-top: -5px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
+        .journey-logs-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: left; }
     </style>
 </head>
 <body>
@@ -519,7 +159,6 @@
 
         <div class="grid-container" id="telemetry-grid"></div>
 
-        <!-- Live Map Section (Moved Below Instruments) -->
         <div id="map-card">
             <div id="map-title">Lough Erne Journey Map & Track</div>
             <div id="map"></div>
@@ -533,7 +172,6 @@
             </div>
         </div>
 
-        <!-- Historical Daily Journey Logs -->
         <div class="journey-logs-section">
             <div class="section-label" style="margin-bottom: 12px;">Daily Journey Logs</div>
             <div id="journey-logs-container">
@@ -543,7 +181,6 @@
     </div>
 
     <script>
-        // --- 1. SUPABASE CONFIGURATION ---
         const SUPABASE_URL = "https://cgssprxbklhkoscvclux.supabase.co/";       
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnc3Nwcnhia2xoa29zY3ZjbHV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTYyNzMsImV4cCI6MjEwMDgzMjI3M30.Bua2rEmjUkW-ZUJjAOyxFk95dXgQFxJNMG5CwbDffdc";  
         
@@ -552,26 +189,22 @@
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         }
 
-        // --- 2. GAUGE REGISTRY ---
         const GAUGE_REGISTRY = {
-            "fuel_mgmt":        { name: "Fuel Level",        unit: " L",    hasProgress: true,  isDefault: true },
-            "engine_rpm":       { name: "Engine Speed",    unit: " RPM",  hasProgress: true,  isDefault: true },
-            "throttle_percent": { name: "Throttle",        unit: "%",     hasProgress: true,  isDefault: true },
-            "run_time_seconds": { name: "Run Time",        unit: "",      hasProgress: false, isDefault: true },
-            "coolant_temp":     { name: "Coolant Temp",    unit: " °C",   hasProgress: false, isDefault: false },
-            "oil_pressure":     { name: "Engine Oil Press",unit: " kPa",  hasProgress: false, isDefault: false },
-            "battery_volt":     { name: "Battery Voltage", unit: " V",    hasProgress: false, isDefault: false },
-            "engine_hours":     { name: "Engine Hours",    unit: " hrs",  hasProgress: false, isDefault: false },
-            "intake_temp":      { name: "Intake Temp",     unit: " °C",   hasProgress: false, isDefault: false },
-            "fuel_rate":        { name: "Fuel Rate",       unit: " L/h",  hasProgress: false, isDefault: false },
-            "zerooff_speed":    { name: "ZeroOff Target",  unit: " MPH",  hasProgress: false, isDefault: false }
+            "fl": { name: "Fuel Level", unit: " L", hasProgress: true, isDefault: true },
+            "rpm": { name: "Engine Speed", unit: " RPM", hasProgress: true, isDefault: true },
+            "thr": { name: "Throttle", unit: "%", hasProgress: true, isDefault: true },
+            "run": { name: "Run Time", unit: "", hasProgress: false, isDefault: true },
+            "ct": { name: "Coolant Temp", unit: " °C", hasProgress: false, isDefault: false },
+            "op": { name: "Engine Oil Press", unit: " kPa", hasProgress: false, isDefault: false },
+            "bv": { name: "Battery Voltage", unit: " V", hasProgress: false, isDefault: false },
+            "eh": { name: "Engine Hours", unit: " hrs", hasProgress: false, isDefault: false },
+            "fr": { name: "Fuel Rate", unit: " L/h", hasProgress: false, isDefault: false }
         };
 
         let activeLayout = [];
         let isEditing = false;
         const circumference = 2 * Math.PI * 90;
 
-        // --- 3. BLE HARDWARE CONFIGURATION ---
         const SERVICE_UUID           = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
         const CHARACTERISTIC_UUID_RX = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
         const CHARACTERISTIC_UUID_TX = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
@@ -581,59 +214,35 @@
         let txCharacteristic = null;
         let isConnected = false;
         let receiveBuffer = "";
+        let lastPacketReceivedTime = 0;
 
-        // Log Sync State
-        let isSyncingLogs = false;
-        let syncedLogBuffer = [];
-
-        // Map Variables
         let map, routePolyline, boatMarker;
         let routeCoordinates = [];
-        let dayMapInstances = {};
 
-        // --- 4. MAP INITIALIZATION ---
         function initMap() {
             map = L.map('map').setView([54.3711, -7.6580], 12);
-            
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                className: 'dark-tiles',
-                attribution: '&copy; OpenStreetMap'
+                maxZoom: 19, className: 'dark-tiles', attribution: '&copy; OpenStreetMap'
             }).addTo(map);
 
-            routePolyline = L.polyline([], {
-                color: '#ff5500',
-                weight: 5,
-                opacity: 0.9,
-                lineJoin: 'round'
-            }).addTo(map);
-
+            routePolyline = L.polyline([], { color: '#ff5500', weight: 5, opacity: 0.9 }).addTo(map);
             setTimeout(() => { map.invalidateSize(); }, 300);
         }
 
-        // --- 5. BLE CONNECTIVITY & PARSING ---
         async function toggleBluetoothConnection() {
-            if (isConnected) {
-                disconnectBLE();
-            } else {
-                connectBLE();
-            }
+            if (isConnected) disconnectBLE();
+            else connectBLE();
         }
 
         async function connectBLE() {
             const btBtn = document.getElementById('bt-btn');
             try {
-                if (!('bluetooth' in navigator)) {
-                    alert('Web Bluetooth API is not supported in this browser.');
-                    return;
-                }
-
+                if (!('bluetooth' in navigator)) { alert('Web Bluetooth not supported.'); return; }
                 btBtn.innerText = "Connecting...";
                 bleDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ name: 'Nautique-Telemetry' }, { namePrefix: 'Nautique' }],
                     optionalServices: [SERVICE_UUID]
                 });
-
                 bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
                 const server = await bleDevice.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
@@ -647,44 +256,32 @@
                 isConnected = true;
                 btBtn.innerText = "Connected (BLE)";
                 btBtn.classList.add('connected');
-
-                // Trigger Offline Log Sync upon successful connect
-                triggerOfflineSync();
-
+                
+                // Request log sync
+                rxCharacteristic.writeValue(new TextEncoder().encode("SYNC\n"));
             } catch (error) {
-                console.error("BLE Connection Failed:", error);
+                console.error("BLE Error:", error);
                 btBtn.innerText = "Pair Bluetooth Device";
-                btBtn.classList.remove('connected');
                 isConnected = false;
             }
         }
 
         function disconnectBLE() {
-            if (bleDevice && bleDevice.gatt.connected) {
-                bleDevice.gatt.disconnect();
-            }
+            if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
             onDisconnected();
         }
 
         function onDisconnected() {
             isConnected = false;
-            const btBtn = document.getElementById('bt-btn');
-            btBtn.innerText = "Pair Bluetooth Device";
-            btBtn.classList.remove('connected');
+            document.getElementById('bt-btn').innerText = "Pair Bluetooth Device";
+            document.getElementById('bt-btn').classList.remove('connected');
             document.getElementById('sync-banner').style.display = 'none';
         }
 
-        function triggerOfflineSync() {
-            if (!isConnected || !rxCharacteristic) return;
-            const encoder = new TextEncoder();
-            rxCharacteristic.writeValue(encoder.encode("SYNC\n"));
-        }
-
         function handleBLEData(event) {
-            let decoder = new TextDecoder('utf-8');
-            let chunk = decoder.decode(event.target.value);
+            lastPacketReceivedTime = Date.now();
+            let chunk = new TextDecoder('utf-8').decode(event.target.value);
             receiveBuffer += chunk;
-
             let lines = receiveBuffer.split('\n');
             receiveBuffer = lines.pop();
 
@@ -693,96 +290,53 @@
                 if (line.startsWith('{') && line.endsWith('}')) {
                     try {
                         const data = JSON.parse(line);
-                        
                         if (data.type === "SYNC_START") {
-                            isSyncingLogs = true;
-                            syncedLogBuffer = [];
                             document.getElementById('sync-banner').style.display = 'block';
-                        } else if (data.type === "LOG_ROW") {
-                            syncedLogBuffer.push(data.data);
                         } else if (data.type === "SYNC_END") {
-                            isSyncingLogs = false;
                             document.getElementById('sync-banner').style.display = 'none';
-                            processSyncedLogs(syncedLogBuffer);
                         } else {
                             updateDashboard(data);
-                            pushTelemetryToSupabase(data);
                         }
-                    } catch (e) { 
-                        console.error("JSON Parse Error:", e, line); 
-                    }
+                    } catch (e) {}
                 }
             });
             updateLastUpdatedTimestamp(new Date());
         }
 
-        async function processSyncedLogs(logs) {
-            if (logs.length === 0) return;
-            console.log(`Syncing ${logs.length} offline CSV rows from ESP32 flash buffer...`);
-
-            try {
-                let dbRows = [];
-                logs.forEach(row => {
-                    let cols = row.split(',');
-                    if (cols[0] !== "uptime_ms" && cols.length >= 9) {
-                        dbRows.push({
-                            uptime_ms: parseInt(cols[0]),
-                            latitude: parseFloat(cols[1]),
-                            longitude: parseFloat(cols[2]),
-                            fuel_liters: parseFloat(cols[3]),
-                            engine_rpm: parseFloat(cols[4]),
-                            coolant_temp: parseFloat(cols[5]),
-                            oil_pressure: parseFloat(cols[6]),
-                            battery_volt: parseFloat(cols[7]),
-                            gps_speed: parseFloat(cols[8]),
-                            event_type: 'telemetry_offline_sync'
-                        });
-                    }
-                });
-
-                if (supabaseClient && dbRows.length > 0) {
-                    const { error } = await supabaseClient.from('telemetry_logs').insert(dbRows);
-                    if (!error) {
-                        console.log("Supabase batch sync successful. Clearing ESP32 log storage...");
-                        const encoder = new TextEncoder();
-                        await rxCharacteristic.writeValue(encoder.encode("CLEAR_LOG\n"));
-                        loadHistoricalJourney();
-                    } else {
-                        console.error("Supabase batch insert error:", error);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed processing synced logs:", err);
+        // Periodic watchdog loop to clear stale status banners if stream pauses
+        setInterval(() => {
+            if (isConnected && lastPacketReceivedTime > 0 && (Date.now() - lastPacketReceivedTime > 5000)) {
+                document.getElementById('sync-banner').style.display = 'none';
             }
-        }
+        }, 2000);
 
         function updateDashboard(data) {
             const gpsStatus = document.getElementById('gps-status');
 
-            if (data.gps_valid && data.gps_speed !== undefined) {
+            if (data.gv) {
                 gpsStatus.innerText = "GPS: LOCKED";
                 gpsStatus.style.color = "#00ff66";
-                updateSpeedometer(data.gps_speed);
+                updateSpeedometer(data.gs || 0);
             } else {
                 gpsStatus.innerText = "GPS: SEARCHING...";
                 gpsStatus.style.color = "#ff8800";
                 updateSpeedometer(0);
             }
 
-            if (data.latitude !== undefined && data.longitude !== undefined && (data.latitude !== 0 || data.longitude !== 0)) {
-                updateLiveMap(data.latitude, data.longitude);
+            if (data.lat && data.lng) {
+                updateLiveMap(data.lat, data.lng);
             }
 
             activeLayout.forEach(key => {
-                if (key === 'fuel_mgmt' && data.fuel_liters !== undefined) {
-                    const pct = data.fuel_percent || Math.min(100, (data.fuel_liters / 80.0) * 100);
-                    updateGaugeValue('fuel_mgmt', `${pct.toFixed(0)}%`, `${pct}%`, `${data.fuel_liters.toFixed(1)} L`);
-                } else if (key === 'engine_rpm' && data.engine_rpm !== undefined) {
-                    updateGaugeValue('engine_rpm', data.engine_rpm, `${Math.min(100, (data.engine_rpm / 6000) * 100)}%`);
-                } else if (key === 'throttle_percent' && data.throttle_percent !== undefined) {
-                    updateGaugeValue('throttle_percent', data.throttle_percent, `${data.throttle_percent}%`);
-                } else if (key === 'run_time_seconds' && data.runtime !== undefined) {
-                    updateGaugeValue('run_time_seconds', data.runtime);
+                if (key === 'fl' && data.fl !== undefined) {
+                    const pct = data.fp || Math.min(100, (data.fl / 80.0) * 100);
+                    updateGaugeValue('fl', `${pct.toFixed(0)}%`, `${pct}%`);
+                } else if (key === 'rpm' && data.rpm !== undefined) {
+                    updateGaugeValue('rpm', data.rpm, `${Math.min(100, (data.rpm / 6000) * 100)}%`);
+                } else if (key === 'thr' && data.thr !== undefined) {
+                    updateGaugeValue('thr', data.thr, `${data.thr}%`);
+                } else if (key === 'run' && data.run !== undefined) {
+                    updateGaugeValue('run', data.run);
                 } else if (data[key] !== undefined) {
                     updateGaugeValue(key, data[key]);
                 }
@@ -791,344 +345,85 @@
 
         function updateSpeedometer(speedMph) {
             document.getElementById('speed-val').innerText = Math.round(speedMph);
-            const speedRing = document.getElementById('speed-ring');
             let speedPercent = Math.min(1, Math.max(0, speedMph / 50));
-            speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
+            document.getElementById('speed-ring').style.strokeDashoffset = circumference - (speedPercent * circumference);
         }
 
-        function updateGaugeValue(key, value, progressWidth = null, subtext = null) {
+        function updateGaugeValue(key, value, progressWidth = null) {
             const valEl = document.getElementById(`val-${key}`);
-            const subEl = document.getElementById(`sub-${key}`);
             const pbEl = document.getElementById(`pb-${key}`);
-
-            if (valEl) {
-                valEl.innerText = value + (GAUGE_REGISTRY[key] ? GAUGE_REGISTRY[key].unit : '');
-            }
-            if (subEl && subtext) {
-                subEl.innerText = subtext;
-            }
-            if (pbEl && progressWidth) {
-                pbEl.style.width = progressWidth;
-            }
+            if (valEl) valEl.innerText = value + (GAUGE_REGISTRY[key] ? GAUGE_REGISTRY[key].unit : '');
+            if (pbEl && progressWidth) pbEl.style.width = progressWidth;
         }
 
         function updateLiveMap(lat, lng) {
             const latLng = [lat, lng];
             routeCoordinates.push(latLng);
             routePolyline.setLatLngs(routeCoordinates);
-
-            if (boatMarker) {
-                boatMarker.setLatLng(latLng);
-            } else {
-                boatMarker = L.circleMarker(latLng, {
-                    color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
-                }).addTo(map);
-            }
+            if (boatMarker) boatMarker.setLatLng(latLng);
+            else boatMarker = L.circleMarker(latLng, { color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8 }).addTo(map);
             map.panTo(latLng);
         }
 
-        async function pushTelemetryToSupabase(payload) {
-            if (!supabaseClient) return;
-            try {
-                await supabaseClient.from('telemetry_logs').insert([{
-                    uptime_ms: payload.uptime_ms,
-                    latitude: payload.latitude,
-                    longitude: payload.longitude,
-                    fuel_liters: payload.fuel_liters,
-                    fuel_percent: payload.fuel_percent,
-                    engine_rpm: payload.engine_rpm,
-                    throttle_percent: payload.throttle_percent,
-                    coolant_temp: payload.coolant_temp,
-                    oil_pressure: payload.oil_pressure,
-                    battery_volt: payload.battery_volt,
-                    engine_hours: payload.engine_hours,
-                    gps_speed: payload.gps_speed,
-                    trip_seconds: payload.run_time_seconds,
-                    event_type: 'telemetry'
-                }]);
-            } catch (err) {
-                console.error("Supabase live write failed:", err);
-            }
-        }
-
-        // --- 6. HISTORICAL JOURNEY LOGS LOADER ---
-        async function loadHistoricalJourney() {
-            if (!supabaseClient) {
-                renderDailyJourneyLogs([]);
-                return;
-            }
-
-            try {
-                const { data, error } = await supabaseClient
-                    .from('telemetry_logs')
-                    .select('*')
-                    .order('created_at', { ascending: true })
-                    .limit(2000);
-
-                if (error) {
-                    console.error("Error fetching historical telemetry:", error);
-                    renderDailyJourneyLogs([]);
-                    return;
-                }
-
-                if (!data || data.length === 0) {
-                    document.getElementById('journey-logs-container').innerHTML = 
-                        '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No journey records found.</div>';
-                    return;
-                }
-
-                routeCoordinates = data
-                    .filter(row => row.latitude && row.longitude)
-                    .map(row => [row.latitude, row.longitude]);
-
-                if (routeCoordinates.length > 0) {
-                    routePolyline.setLatLngs(routeCoordinates);
-                    map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
-
-                    const lastRow = data[data.length - 1];
-                    if (boatMarker) {
-                        boatMarker.setLatLng([lastRow.latitude, lastRow.longitude]);
-                    } else {
-                        boatMarker = L.circleMarker([lastRow.latitude, lastRow.longitude], {
-                            color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
-                        }).addTo(map);
-                    }
-                    updateLastUpdatedTimestamp(new Date(lastRow.created_at));
-                }
-
-                renderDailyJourneyLogs(data);
-
-            } catch (err) {
-                console.error("Supabase fetch failed:", err);
-                renderDailyJourneyLogs([]);
-            }
-        }
-
-        function renderDailyJourneyLogs(logs) {
-            const container = document.getElementById('journey-logs-container');
-            if (!logs || logs.length === 0) {
-                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No records found.</div>';
-                return;
-            }
-
-            const grouped = {};
-            logs.forEach(log => {
-                const dateKey = new Date(log.created_at).toISOString().split('T')[0];
-                if (!grouped[dateKey]) grouped[dateKey] = [];
-                grouped[dateKey].push(log);
-            });
-
-            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-
-            container.innerHTML = sortedDates.map((dateKey, index) => {
-                const dayLogs = grouped[dateKey];
-                const tripsCount = dayLogs.length;
-
-                const fuelStart = dayLogs[0].fuel_liters || 80;
-                const fuelEnd = dayLogs[dayLogs.length - 1].fuel_liters || 80;
-                const fuelUsed = Math.max(0, (fuelStart - fuelEnd)).toFixed(1);
-
-                const formattedDate = new Date(dateKey).toLocaleDateString('en-GB', {
-                    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-                });
-
-                return `
-                    <div class="journey-day-card" id="day-card-${index}">
-                        <div class="journey-day-header" onclick="toggleDayAccordion(${index}, '${dateKey}')">
-                            <div class="day-info">
-                                <div class="day-date">${formattedDate}</div>
-                                <div class="day-meta">${tripsCount} GPS points recorded</div>
-                            </div>
-                            <div class="day-fuel-pill">
-                                <span>${fuelUsed > 0 ? fuelUsed + ' L Used' : 'Minimal Burn'}</span>
-                                <span class="toggle-arrow">▼</span>
-                            </div>
-                        </div>
-                        <div class="journey-day-content" id="day-content-${index}">
-                            <div class="day-map-container" id="day-map-${index}"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            window.dailyLogsGrouped = grouped;
-        }
-
-        function toggleDayAccordion(index, dateKey) {
-            const card = document.getElementById(`day-card-${index}`);
-            const content = document.getElementById(`day-content-${index}`);
-            const isOpen = card.classList.contains('active');
-
-            if (isOpen) {
-                card.classList.remove('active');
-                content.style.display = 'none';
-            } else {
-                card.classList.add('active');
-                content.style.display = 'block';
-
-                setTimeout(() => {
-                    if (!dayMapInstances[index]) {
-                        const dayMap = L.map(`day-map-${index}`).setView([54.3711, -7.6580], 12);
-                        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            maxZoom: 19,
-                            className: 'dark-tiles',
-                            attribution: '&copy; OpenStreetMap'
-                        }).addTo(dayMap);
-
-                        const dayLogs = window.dailyLogsGrouped[dateKey];
-                        const coords = dayLogs
-                            .filter(l => l.latitude && l.longitude)
-                            .map(l => [l.latitude, l.longitude]);
-
-                        if (coords.length > 0) {
-                            const polyline = L.polyline(coords, {
-                                color: '#ff5500',
-                                weight: 4,
-                                opacity: 0.95
-                            }).addTo(dayMap);
-                            dayMap.fitBounds(polyline.getBounds(), { padding: [15, 15] });
-                        }
-                        dayMapInstances[index] = dayMap;
-                    } else {
-                        dayMapInstances[index].invalidateSize();
-                    }
-                }, 100);
-            }
-        }
-
-        // --- 7. REFILL & LAYOUT CONTROLS ---
         async function sendRefillCommand() {
-            const input = document.getElementById('refill-input');
-            const liters = parseFloat(input.value);
-
-            if (isNaN(liters) || liters <= 0) {
-                alert("Please enter a valid amount of liters.");
-                return;
-            }
-
+            const liters = parseFloat(document.getElementById('refill-input').value);
+            if (isNaN(liters) || liters <= 0) { alert("Enter valid liters."); return; }
             if (isConnected && rxCharacteristic) {
-                const encoder = new TextEncoder();
-                await rxCharacteristic.writeValue(encoder.encode(`REFILL:${liters}\n`));
-                alert(`Refill Command Sent via BLE: ${liters} Liters`);
-            }
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('telemetry_logs').insert([{ 
-                        fuel_liters: 80.0, 
-                        fuel_percent: 100.0,
-                        event_type: 'refill' 
-                    }]);
-                    input.value = '';
-                    loadHistoricalJourney();
-                } catch (err) {
-                    console.error("Failed logging refill to Supabase:", err);
-                }
+                await rxCharacteristic.writeValue(new TextEncoder().encode(`REFILL:${liters}\n`));
+                alert(`Refill Sent: ${liters}L`);
             }
         }
 
         function updateLastUpdatedTimestamp(dateObj) {
-            if (isNaN(dateObj.getTime())) return;
-            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const dateStr = dateObj.toLocaleDateString('en-GB');
-            document.getElementById('last-updated-text').innerText = `Last updated at ${timeStr} ${dateStr}`;
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('last-updated-text').innerText = `Last updated at ${timeStr}`;
         }
 
         function initLayoutConfig() {
-            let stored = localStorage.getItem('nautique_layout_v2');
-            if (stored) {
-                try { activeLayout = JSON.parse(stored); } catch(e) { activeLayout = []; }
-            }
+            let stored = localStorage.getItem('nautique_layout_v3');
+            if (stored) { try { activeLayout = JSON.parse(stored); } catch(e) {} }
             if (!activeLayout || activeLayout.length === 0) {
                 activeLayout = Object.keys(GAUGE_REGISTRY).filter(k => GAUGE_REGISTRY[k].isDefault);
-                saveLayoutConfig();
+                localStorage.setItem('nautique_layout_v3', JSON.stringify(activeLayout));
             }
-        }
-
-        function saveLayoutConfig() {
-            localStorage.setItem('nautique_layout_v2', JSON.stringify(activeLayout));
         }
 
         function renderGaugeGrid() {
             const grid = document.getElementById('telemetry-grid');
             grid.innerHTML = '';
-
             activeLayout.forEach(key => {
                 const meta = GAUGE_REGISTRY[key];
                 if (!meta) return;
-
                 const card = document.createElement('div');
                 card.className = 'gauge-card';
-                card.setAttribute('data-key', key);
-
-                let progressHtml = meta.hasProgress ? `
-                    <div class="progress-track" style="margin-top:6px;">
-                        <div id="pb-${key}" class="progress-bar" style="width: 0%"></div>
-                    </div>` : '';
-
                 card.innerHTML = `
                     <div class="card-label">${meta.name}</div>
                     <div id="val-${key}" class="card-val">--</div>
-                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">Telemetry Active</div>
-                    ${progressHtml}
-                    <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
+                    ${meta.hasProgress ? `<div class="progress-track"><div id="pb-${key}" class="progress-bar" style="width: 0%"></div></div>` : ''}
+                    <button style="display:none; position:absolute; bottom:8px; right:8px; background:red; color:white; border:none; border-radius:4px; padding:2px 6px;" onclick="activeLayout=activeLayout.filter(k=>k!='${key}');renderGaugeGrid();localStorage.setItem('nautique_layout_v3',JSON.stringify(activeLayout));">Del</button>
                 `;
                 grid.appendChild(card);
             });
-
             const selector = document.getElementById('gauge-selector');
             selector.innerHTML = '';
             Object.keys(GAUGE_REGISTRY).forEach(key => {
-                if (!activeLayout.includes(key)) {
-                    selector.innerHTML += `<option value="${key}">${GAUGE_REGISTRY[key].name}</option>`;
-                }
+                if (!activeLayout.includes(key)) selector.innerHTML += `<option value="${key}">${GAUGE_REGISTRY[key].name}</option>`;
             });
         }
 
         function toggleEditMode() {
             isEditing = !isEditing;
-            const btn = document.getElementById('edit-layout-btn');
-            const grid = document.getElementById('telemetry-grid');
-            const addPanel = document.getElementById('add-item-box');
-
-            if (isEditing) {
-                btn.innerText = "Done";
-                btn.classList.add('active');
-                grid.classList.add('edit-mode');
-                addPanel.style.display = 'block';
-            } else {
-                btn.innerText = "Edit";
-                btn.classList.remove('active');
-                grid.classList.remove('edit-mode');
-                addPanel.style.display = 'none';
-                saveLayoutConfig();
-            }
+            document.getElementById('edit-layout-btn').innerText = isEditing ? "Done" : "Edit";
+            document.getElementById('edit-layout-btn').classList.toggle('active', isEditing);
+            document.getElementById('add-item-box').style.display = isEditing ? 'block' : 'none';
         }
 
         function addGaugeNode() {
-            const selector = document.getElementById('gauge-selector');
-            if (selector.value) {
-                activeLayout.push(selector.value);
-                renderGaugeGrid();
-                saveLayoutConfig();
-            }
+            const val = document.getElementById('gauge-selector').value;
+            if (val) { activeLayout.push(val); renderGaugeGrid(); localStorage.setItem('nautique_layout_v3', JSON.stringify(activeLayout)); }
         }
 
-        function deleteGaugeNode(e, key) {
-            e.stopPropagation();
-            activeLayout = activeLayout.filter(k => k !== key);
-            renderGaugeGrid();
-            saveLayoutConfig();
-        }
-
-        // --- 8. INITIALIZATION ---
-        window.addEventListener('DOMContentLoaded', () => {
-            initMap();
-            initLayoutConfig();
-            renderGaugeGrid();
-            loadHistoricalJourney();
-        });
+        window.addEventListener('DOMContentLoaded', () => { initMap(); initLayoutConfig(); renderGaugeGrid(); });
     </script>
 </body>
 </html>
-
