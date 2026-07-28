@@ -104,13 +104,6 @@
             letter-spacing: 1px;
         }
 
-        .btn-connect.connected {
-            background: #1c1e24;
-            color: var(--connected-green);
-            border: 1px solid var(--connected-green);
-            box-shadow: 0 0 10px rgba(0, 255, 102, 0.2);
-        }
-
         .speed-gauge-container {
             position: relative;
             width: 220px;
@@ -185,6 +178,11 @@
             z-index: 1;
         }
 
+        /* Dark Mode CSS Filter for reliable OpenStreetMap tiles */
+        .dark-tiles {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+        }
+
         .grid-header-row {
             display: flex;
             justify-content: space-between;
@@ -213,11 +211,6 @@
             letter-spacing: 0.5px;
             cursor: pointer;
             box-shadow: 0 2px 8px rgba(255, 85, 0, 0.2);
-            transition: all 0.2s ease;
-        }
-        .btn-edit.active {
-            background: #ffffff;
-            color: var(--bg-color);
         }
 
         .grid-container { 
@@ -225,7 +218,6 @@
             grid-template-columns: repeat(2, 1fr); 
             gap: 15px; 
             margin-bottom: 25px;
-            min-height: 50px;
         }
 
         .gauge-card { 
@@ -233,12 +225,8 @@
             padding: 16px 12px; 
             border-radius: 18px; 
             border: 1px solid rgba(255,255,255,0.03);
-            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
             text-align: left;
             position: relative;
-            overflow: hidden;
-            user-select: none;
-            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
         }
 
         .card-label { 
@@ -248,9 +236,6 @@
             letter-spacing: 1px; 
             font-weight: 600;
             margin-bottom: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .card-val { 
@@ -259,7 +244,6 @@
             font-weight: 700; 
             color: var(--text-main); 
             margin-bottom: 8px;
-            white-space: nowrap;
         }
 
         .progress-track {
@@ -279,97 +263,9 @@
             transition: width 0.3s ease;
         }
 
-        .edit-mode .gauge-card {
-            border: 1px dashed var(--nautique-orange);
-            cursor: move;
-            animation: gentleWobble 0.3s infinite alternate;
-        }
-
-        .card-delete-btn {
-            display: none;
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            background: var(--danger-red);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 2px 6px;
-            font-size: 0.65rem;
-            font-weight: 800;
-            cursor: pointer;
-            z-index: 10;
-        }
-        .edit-mode .card-delete-btn { display: block; }
-
-        @keyframes gentleWobble {
-            0% { transform: rotate(-0.5deg); }
-            100% { transform: rotate(0.5deg); }
-        }
-
-        .add-item-panel {
-            display: none;
-            background: #121317;
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 18px;
-            padding: 15px;
-            margin-bottom: 25px;
-            text-align: left;
-        }
-        .add-item-panel select {
-            width: 100%;
-            padding: 12px;
-            background: var(--card-bg);
-            border: 1px solid #2c2f36;
-            color: white;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-            outline: none;
-        }
-
-        .control-panel { 
-            margin-top: 25px; 
-            padding-top: 20px; 
-            border-top: 1px solid rgba(255,255,255,0.05); 
-            text-align: left; 
-        }
-
-        .flex-group { display: flex; justify-content: space-between; margin-top: 10px; gap: 10px; align-items: center; }
-        
-        input[type="number"] { 
-            padding: 14px; 
-            font-size: 1rem; 
-            flex-grow: 1; 
-            border-radius: 14px; 
-            border: 1px solid #2c2f36; 
-            background: #121317; 
-            color: #ffffff; 
-            font-weight: 600;
-            text-align: center; 
-            outline: none;
-        }
-
-        button { 
-            padding: 14px 20px; 
-            font-size: 0.95rem; 
-            border: none; 
-            border-radius: 14px; 
-            font-weight: 800; 
-            cursor: pointer; 
-            font-family: 'Inter', sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .btn-orange { 
-            background: var(--nautique-orange); 
-            color: #ffffff; 
-            box-shadow: 0 4px 15px rgba(255, 85, 0, 0.3);
-        }
-        
         #gps-status {
             font-size: 0.7rem;
-            color: var(--text-muted);
+            color: #00ff66;
             margin-top: -10px;
             margin-bottom: 15px;
             text-transform: uppercase;
@@ -383,13 +279,13 @@
     <div class="dashboard">
         <h1>Nelly the Nautique</h1>
         <div class="subtitle">Multi-Telemetry Hub</div>
-        <div class="last-updated-header" id="last-updated-text">Last updated at 12:32 28/07/2026</div>
+        <div class="last-updated-header">Last updated at 12:32 28/07/2026</div>
 
         <div class="bt-connection-bar">
-            <button id="bt-btn" class="btn-connect" onclick="toggleBluetoothConnection()">Pair Bluetooth Device</button>
+            <button class="btn-connect" onclick="alert('Demo Mode Active')">Pair Bluetooth Device</button>
         </div>
         
-        <div id="gps-status" style="color:#00ff66;">GPS: LOCKED (GARMIN)</div>
+        <div id="gps-status">GPS: LOCKED (GARMIN)</div>
 
         <div class="speed-gauge-container">
             <svg class="speed-svg" width="220" height="220">
@@ -410,300 +306,93 @@
 
         <div class="grid-header-row">
             <div class="section-label">Instruments</div>
-            <button class="btn-edit" id="edit-layout-btn" onclick="toggleEditMode()">Edit</button>
-        </div>
-
-        <div class="add-item-panel" id="add-item-box">
-            <div class="card-label">Add Instrument Option</div>
-            <select id="gauge-selector"></select>
-            <button class="btn-orange" style="padding: 10px; font-size:0.8rem; width:100%;" onclick="addGaugeNode()">Insert Into Grid</button>
         </div>
 
         <div class="grid-container" id="telemetry-grid"></div>
-
-        <div class="control-panel">
-            <div class="card-label" style="padding-left:4px;">Log Top-Off Fuel (Liters)</div>
-            <div class="flex-group">
-                <input type="number" id="refill-input" step="0.1" placeholder="Liters on receipt">
-                <button type="button" class="btn-orange" onclick="sendRefillCommand()">Reset Full</button>
-            </div>
-        </div>
     </div>
 
     <script>
-        // --- 1. SUPABASE CONFIGURATION ---
-        const SUPABASE_URL = "YOUR_SUPABASE_URL";
-        const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";
-        const supabase = (SUPABASE_URL !== "YOUR_SUPABASE_URL") ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-
-        // --- 2. SAMPLE JOURNEY DATA FOR LOUGH ERNE ---
+        // --- LOUGH ERNE GPS SAMPLE PATH ---
         const SAMPLE_LOUGH_ERNE_TRACK = [
-            [54.3481, -7.6410], // Enniskillen Castle Departure
-            [54.3512, -7.6452], // Passing Round O Pier
-            [54.3565, -7.6521], // Portora Royal
-            [54.3620, -7.6605], // Lower Lough Erne Inlet
-            [54.3685, -7.6710], // Passing Devenish Island West
-            [54.3742, -7.6802], // Open Water Heading North-West
-            [54.3810, -7.6895], // Approaching Ely Lodge
-            [54.3882, -7.7011], // Ely Island Channel
-            [54.3945, -7.7120], // Passing Killadeas Waters Edge
-            [54.3998, -7.7245], // Heading towards Governor Island
-            [54.4051, -7.7380], // Open Lough Cruising
-            [54.4120, -7.7510], // Near Inishork Island
-            [54.4195, -7.7650], // Approaching Lusty Beg Turning Point
-            [54.4180, -7.7610], // Turning Back
-            [54.4105, -7.7480], // Southbound Return Track
-            [54.4020, -7.7300], // Passing Crevinishaughy Island
-            [54.3920, -7.7080], // Re-entering Ely Channel
-            [54.3820, -7.6910], // Passing Devenish East
-            [54.3660, -7.6680], // Re-entering Enniskillen River
-            [54.3490, -7.6420]  // Returning to Dock
+            [54.3481, -7.6410],
+            [54.3512, -7.6452],
+            [54.3565, -7.6521],
+            [54.3620, -7.6605],
+            [54.3685, -7.6710],
+            [54.3742, -7.6802],
+            [54.3810, -7.6895],
+            [54.3882, -7.7011],
+            [54.3945, -7.7120],
+            [54.3998, -7.7245],
+            [54.4051, -7.7380]
         ];
 
-        const SAMPLE_TELEMETRY = {
-            fuel_liters: 58.4,
-            fuel_percent: 73.0,
-            engine_rpm: 3250,
-            throttle_percent: 45,
-            run_time_seconds: 4320,
-            runtime: "01:12",
-            coolant_temp: 78.5,
-            oil_pressure: 310.0,
-            battery_volt: 13.85,
-            engine_hours: 246.50,
-            intake_temp: 22.0,
-            fuel_rate: 24.50,
-            j1939_fuel_level: 72.8,
-            zo_handshake: "System Ready",
-            security_heart: "AUTH ACTIVE",
-            zo_speed: 22.4,
-            gps_speed: 22.0,
-            gps_valid: true,
-            gps_lat: 54.3882,
-            gps_lng: -7.7011
-        };
-
-        // --- 3. BLE & MAP SETUP ---
-        const NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-        const NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-        const NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-
-        const GAUGE_REGISTRY = {
-            "fuel_mgmt":        { name: "Fuel Level",     unit: " L",    hasProgress: true,  isDefault: true },
-            "engine_rpm":       { name: "Engine Speed",   unit: " RPM",  hasProgress: true,  isDefault: true },
-            "throttle_percent": { name: "Throttle",       unit: "%",     hasProgress: true,  isDefault: true },
-            "run_time_seconds": { name: "Run Time",       unit: "",      hasProgress: false, isDefault: true },
-            "coolant_temp":     { name: "Coolant Temp",   unit: " °C",   hasProgress: false, isDefault: false },
-            "oil_pressure":     { name: "Engine Oil Press",unit: " kPa",  hasProgress: false, isDefault: false },
-            "battery_volt":     { name: "Battery Voltage",unit: " V",    hasProgress: false, isDefault: false },
-            "engine_hours":     { name: "Engine Hours",   unit: " hrs",  hasProgress: false, isDefault: false },
-            "intake_temp":      { name: "Intake Air Temp",unit: " °C",   hasProgress: false, isDefault: false },
-            "fuel_rate":        { name: "Fuel Rate",      unit: " L/h",  hasProgress: false, isDefault: false },
-            "j1939_fuel_level": { name: "Fuel Level (J)", unit: " %",    hasProgress: true,  isDefault: false },
-            "zo_handshake":     { name: "ZeroOff Sync",   unit: "",      hasProgress: false, isDefault: false },
-            "security_heart":   { name: "Security Auth",  unit: "",      hasProgress: false, isDefault: false },
-            "zo_speed":         { name: "ZeroOff SOG",    unit: " mph",  hasProgress: false, isDefault: false }
-        };
-
-        let activeLayout = [];
-        let isEditing = false;
-        const circumference = 2 * Math.PI * 90;
-
-        let bleDevice = null;
-        let rxCharacteristic = null;
-        let txCharacteristic = null;
-        let isConnected = false;
-
-        // Map Variables
         let map, routePolyline, boatMarker;
 
-        function initMapWithSampleData() {
-            // Center map on Lough Erne
-            map = L.map('map').setView([54.385, -7.700], 12);
+        function initMap() {
+            // Set initial coordinates on Lough Erne
+            map = L.map('map').setView([54.3742, -7.6802], 12);
 
-            // Dark map theme
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            // Use direct OpenStreetMap HTTPS tiles with dark mode class
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                subdomains: 'abcd',
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
+                className: 'dark-tiles',
+                attribution: '&copy; OpenStreetMap'
             }).addTo(map);
 
-            // Draw Orange Journey Line
+            // Draw Journey Polyline
             routePolyline = L.polyline(SAMPLE_LOUGH_ERNE_TRACK, {
                 color: '#ff5500',
                 weight: 5,
-                opacity: 0.9,
-                lineJoin: 'round'
+                opacity: 0.95
             }).addTo(map);
 
-            // Fit map around Lough Erne trip route
+            // Fit boundaries
             map.fitBounds(routePolyline.getBounds(), { padding: [20, 20] });
 
-            // Place boat pin at current location
-            const currentPosition = SAMPLE_LOUGH_ERNE_TRACK[7];
-            boatMarker = L.circleMarker(currentPosition, {
+            // Add Boat Location Pin
+            boatMarker = L.circleMarker([54.3882, -7.7011], {
                 color: '#ffffff',
                 fillColor: '#ff5500',
                 fillOpacity: 1,
                 radius: 8,
                 weight: 3
-            }).addTo(map).bindPopup("<b>Nelly the Nautique</b><br>Speed: 22 MPH<br>Lough Erne Track").openPopup();
+            }).addTo(map).bindPopup("<b>Nelly the Nautique</b><br>Cruising Lough Erne").openPopup();
+
+            // Force Leaflet recalculation to prevent blank map issue on GitHub Pages
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
         }
 
-        function initLayoutConfig() {
-            let stored = localStorage.getItem('nautique_layout_v2');
-            if (stored) {
-                activeLayout = JSON.parse(stored);
-            } else {
-                activeLayout = Object.keys(GAUGE_REGISTRY).filter(k => GAUGE_REGISTRY[k].isDefault);
-                saveLayoutConfig();
-            }
-        }
-
-        function saveLayoutConfig() {
-            localStorage.setItem('nautique_layout_v2', JSON.stringify(activeLayout));
-        }
-
-        function renderGaugeGrid() {
+        function renderSampleGauges() {
             const grid = document.getElementById('telemetry-grid');
-            grid.innerHTML = '';
+            const data = [
+                { label: "Fuel Level", val: "73%", sub: "58.4 / 80 L", pct: 73 },
+                { label: "Engine Speed", val: "3250 RPM", sub: "Tachometer", pct: 54 },
+                { label: "Throttle", val: "45%", sub: "Position Index", pct: 45 },
+                { label: "Coolant Temp", val: "78.5 °C", sub: "Engine Temp", pct: 0 }
+            ];
 
-            activeLayout.forEach(key => {
-                const meta = GAUGE_REGISTRY[key];
-                if (!meta) return;
+            grid.innerHTML = data.map(item => `
+                <div class="gauge-card">
+                    <div class="card-label">${item.label}</div>
+                    <div class="card-val">${item.val}</div>
+                    <div style="font-size:0.72rem; color:var(--text-muted);">${item.sub}</div>
+                    ${item.pct > 0 ? `<div class="progress-track" style="margin-top:6px;"><div class="progress-bar" style="width:${item.pct}%"></div></div>` : ''}
+                </div>
+            `).join('');
 
-                const card = document.createElement('div');
-                card.className = 'gauge-card';
-                card.setAttribute('draggable', isEditing ? 'true' : 'false');
-                card.setAttribute('data-key', key);
-
-                let progressHtml = meta.hasProgress ? `
-                    <div class="progress-track" style="margin-top:6px;">
-                        <div id="pb-${key}" class="progress-bar" style="width: 0%"></div>
-                    </div>` : '';
-
-                let subLabel = "Telemetry Data";
-                if(key === 'fuel_mgmt') subLabel = "-- / 80 L";
-                if(key === 'engine_rpm') subLabel = "Tachometer";
-                if(key === 'throttle_percent') subLabel = "Position Index";
-                if(key === 'run_time_seconds') subLabel = "Active Hours";
-
-                card.innerHTML = `
-                    <div class="card-label">${meta.name}</div>
-                    <div id="val-${key}" class="card-val">--</div>
-                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">${subLabel}</div>
-                    ${progressHtml}
-                    <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
-                `;
-                grid.appendChild(card);
-            });
-
-            const selector = document.getElementById('gauge-selector');
-            selector.innerHTML = '';
-            Object.keys(GAUGE_REGISTRY).forEach(key => {
-                if (!activeLayout.includes(key)) {
-                    selector.innerHTML += `<option value="${key}">${GAUGE_REGISTRY[key].name}</option>`;
-                }
-            });
-        }
-
-        function toggleEditMode() {
-            isEditing = !isEditing;
-            const btn = document.getElementById('edit-layout-btn');
-            const grid = document.getElementById('telemetry-grid');
-            const addPanel = document.getElementById('add-item-box');
-
-            if (isEditing) {
-                btn.innerText = "Done";
-                btn.classList.add('active');
-                grid.classList.add('edit-mode');
-                addPanel.style.display = 'block';
-            } else {
-                btn.innerText = "Edit";
-                btn.classList.remove('active');
-                grid.classList.remove('edit-mode');
-                addPanel.style.display = 'none';
-                saveLayoutConfig();
-            }
-        }
-
-        function addGaugeNode() {
-            const selector = document.getElementById('gauge-selector');
-            if (selector.value) {
-                activeLayout.push(selector.value);
-                renderGaugeGrid();
-                saveLayoutConfig();
-                updateDashboardWithSampleData();
-            }
-        }
-
-        function deleteGaugeNode(e, key) {
-            e.stopPropagation();
-            activeLayout = activeLayout.filter(k => k !== key);
-            renderGaugeGrid();
-            saveLayoutConfig();
-            updateDashboardWithSampleData();
-        }
-
-        function updateDashboardWithSampleData() {
-            const data = SAMPLE_TELEMETRY;
-
-            // Speedometer gauge ring set to 22 MPH
-            const speedValEl = document.getElementById('speed-val');
+            // Speedometer Arc
             const speedRing = document.getElementById('speed-ring');
-            speedValEl.innerText = Math.round(data.gps_speed);
-            let speedPercent = Math.min(data.gps_speed / 50, 1);
-            speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
-
-            // Populate instrument grid values
-            activeLayout.forEach(key => {
-                const valEl = document.getElementById(`val-${key}`);
-                const pbEl = document.getElementById(`pb-${key}`);
-                const subEl = document.getElementById(`sub-${key}`);
-                if (!valEl) return;
-
-                let value = data[key];
-                let unit = GAUGE_REGISTRY[key].unit;
-
-                if (key === 'fuel_mgmt') {
-                    valEl.innerText = data.fuel_percent + '%';
-                    if(subEl) subEl.innerText = data.fuel_liters + ' / 80 L';
-                    if(pbEl) pbEl.style.width = data.fuel_percent + '%';
-                } else if (key === 'run_time_seconds') {
-                    valEl.innerText = data.runtime;
-                } else {
-                    valEl.innerText = value + unit;
-                    if (pbEl) {
-                        let pct = 0;
-                        if (key === 'engine_rpm') pct = Math.min((value / 6000) * 100, 100);
-                        else if (key === 'throttle_percent' || key === 'j1939_fuel_level') pct = value;
-                        pbEl.style.width = pct + '%';
-                    }
-                }
-            });
-        }
-
-        async function toggleBluetoothConnection() {
-            alert("This preview is currently demonstrating sample Lough Erne trip telemetry.");
-        }
-
-        function sendRefillCommand() {
-            const input = document.getElementById('refill-input');
-            const liters = parseFloat(input.value);
-
-            if (isNaN(liters) || liters <= 0) {
-                alert("Please enter a valid number of liters.");
-                return;
-            }
-            alert(`[Sample Mode] Refill logged: ${liters} L added.`);
-            input.value = '';
+            const circumference = 2 * Math.PI * 90;
+            const pct = 22 / 50;
+            speedRing.style.strokeDashoffset = circumference - (pct * circumference);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            initMapWithSampleData();
-            initLayoutConfig();
-            renderGaugeGrid();
-            updateDashboardWithSampleData();
+            initMap();
+            renderSampleGauges();
         });
     </script>
 </body>
