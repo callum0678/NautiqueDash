@@ -533,10 +533,13 @@
         // --- 1. SUPABASE CONFIGURATION ---
         const SUPABASE_URL = "https://cgssprxbklhkoscvclux.supabase.co/";       
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnc3Nwcnhia2xoa29zY3ZjbHV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTYyNzMsImV4cCI6MjEwMDgzMjI3M30.Bua2rEmjUkW-ZUJjAOyxFk95dXgQFxJNMG5CwbDffdc";  
-        const supabase = (SUPABASE_URL !== "YOUR_SUPABASE_URL") ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+        
+        let supabaseClient = null;
+        if (typeof supabase !== 'undefined' && SUPABASE_URL !== "YOUR_SUPABASE_URL") {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
 
         // --- 2. ENNISKILLEN / LOUGH ERNE DEMO DATA ---
-        // Real boat navigation coordinates around Enniskillen River & Lower Lough Erne
         const ENNISKILLEN_DEMO_LOGS = [
             // Day 1: July 28 - Enniskillen Town River Cruise past Devenish Island
             { created_at: "2026-07-28T10:15:00Z", latitude: 54.3468, longitude: -7.6392, fuel_liters: 76.0, fuel_percent: 95 },
@@ -544,7 +547,7 @@
             { created_at: "2026-07-28T11:00:00Z", latitude: 54.3711, longitude: -7.6580, fuel_liters: 68.0, fuel_percent: 85 },
             { created_at: "2026-07-28T11:45:00Z", latitude: 54.3875, longitude: -7.6742, fuel_liters: 62.0, fuel_percent: 77 },
             
-            // Day 2: July 27 - Wakeboard Run into Lower Lough Erne (towards Manor House / Killadeas)
+            // Day 2: July 27 - Wakeboard Run into Lower Lough Erne
             { created_at: "2026-07-27T14:00:00Z", latitude: 54.3875, longitude: -7.6742, fuel_liters: 80.0, fuel_percent: 100 },
             { created_at: "2026-07-27T14:45:00Z", latitude: 54.4120, longitude: -7.7025, fuel_liters: 68.5, fuel_percent: 85 },
             { created_at: "2026-07-27T15:30:00Z", latitude: 54.4321, longitude: -7.7310, fuel_liters: 55.0, fuel_percent: 68 },
@@ -552,13 +555,9 @@
         ];
 
         // --- 3. BLE & MAP SETUP ---
-        const NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-        const NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-        const NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-
         const GAUGE_REGISTRY = {
-            "fuel_mgmt":        { name: "Fuel Level",     unit: " L",    hasProgress: true,  isDefault: true },
-            "engine_rpm":       { name: "Engine Speed",   unit: " RPM",  hasProgress: true,  isDefault: true },
+            "fuel_mgmt":       { name: "Fuel Level",       unit: " L",    hasProgress: true,  isDefault: true },
+            "engine_rpm":      { name: "Engine Speed",   unit: " RPM",  hasProgress: true,  isDefault: true },
             "throttle_percent": { name: "Throttle",       unit: "%",     hasProgress: true,  isDefault: true },
             "run_time_seconds": { name: "Run Time",       unit: "",      hasProgress: false, isDefault: true },
             "coolant_temp":     { name: "Coolant Temp",   unit: " °C",   hasProgress: false, isDefault: false },
@@ -571,19 +570,12 @@
         let isEditing = false;
         const circumference = 2 * Math.PI * 90;
 
-        let bleDevice = null;
-        let rxCharacteristic = null;
-        let txCharacteristic = null;
-        let isConnected = false;
-        let receiveBuffer = "";
-
         // Map Variables
         let map, routePolyline, boatMarker;
         let routeCoordinates = [];
         let dayMapInstances = {};
 
         function initMap() {
-            // Default center at Enniskillen Lough Erne
             map = L.map('map').setView([54.3711, -7.6580], 12);
             
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -606,19 +598,22 @@
         async function loadHistoricalJourney() {
             let data = ENNISKILLEN_DEMO_LOGS;
 
-            if (supabase) {
-                const { data: dbData, error } = await supabase
-                    .from('telemetry_logs')
-                    .select('*')
-                    .order('created_at', { ascending: true })
-                    .limit(1000);
+            if (supabaseClient) {
+                try {
+                    const { data: dbData, error } = await supabaseClient
+                        .from('telemetry_logs')
+                        .select('*')
+                        .order('created_at', { ascending: true })
+                        .limit(1000);
 
-                if (!error && dbData && dbData.length > 0) {
-                    data = dbData;
+                    if (!error && dbData && dbData.length > 0) {
+                        data = dbData;
+                    }
+                } catch (err) {
+                    console.warn("Supabase fetch fallback triggered:", err);
                 }
             }
 
-            // Render polyline on master map
             routeCoordinates = data
                 .filter(row => row.latitude && row.longitude)
                 .map(row => [row.latitude, row.longitude]);
@@ -629,7 +624,6 @@
 
                 const lastRow = data[data.length - 1];
                 
-                // Add demo marker at the current boat position (Devenish Island area)
                 boatMarker = L.circleMarker([lastRow.latitude, lastRow.longitude], {
                     color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
                 }).addTo(map);
@@ -647,7 +641,6 @@
                 return;
             }
 
-            // Group by Date (YYYY-MM-DD)
             const grouped = {};
             logs.forEach(log => {
                 const dateKey = new Date(log.created_at).toISOString().split('T')[0];
@@ -743,8 +736,9 @@
         function initLayoutConfig() {
             let stored = localStorage.getItem('nautique_layout_v2');
             if (stored) {
-                activeLayout = JSON.parse(stored);
-            } else {
+                try { activeLayout = JSON.parse(stored); } catch(e) { activeLayout = []; }
+            }
+            if (!activeLayout || activeLayout.length === 0) {
                 activeLayout = Object.keys(GAUGE_REGISTRY).filter(k => GAUGE_REGISTRY[k].isDefault);
                 saveLayoutConfig();
             }
@@ -758,7 +752,6 @@
             const grid = document.getElementById('telemetry-grid');
             grid.innerHTML = '';
 
-            // Default mock telemetry values for Enniskillen demo presentation
             const mockValues = {
                 "fuel_mgmt": { val: "77%", sub: "62.0 / 80 L", pb: 77 },
                 "engine_rpm": { val: "3200", sub: "Tachometer", pb: 53 },
@@ -800,7 +793,6 @@
                 }
             });
 
-            // Set initial speed ring for demo
             const speedRing = document.getElementById('speed-ring');
             let speedPercent = 22 / 50;
             speedRing.style.strokeDashoffset = circumference - (speedPercent * circumference);
