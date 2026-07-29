@@ -674,10 +674,42 @@
             document.getElementById('sync-banner').style.display = 'none';
         }
 
+        async function sendAck() {
+            if (isConnected && rxCharacteristic) {
+                try {
+                    const encoder = new TextEncoder();
+                    await rxCharacteristic.writeValue(encoder.encode("ACK\n"));
+                } catch (e) {
+                    console.warn("BLE ACK write failed:", e);
+                }
+            }
+        }
+
         function triggerOfflineSync() {
             if (!isConnected || !rxCharacteristic) return;
             const encoder = new TextEncoder();
             rxCharacteristic.writeValue(encoder.encode("SYNC\n"));
+        }
+
+        function mapBLEKeys(raw) {
+            // Map abbreviated ESP JSON keys to long-form dashboard keys
+            return {
+                fuel_liters: raw.fl,
+                fuel_percent: raw.fp,
+                engine_rpm: raw.rpm,
+                throttle_percent: raw.thr,
+                runtime: raw.run,
+                run_time_seconds: raw.rt,
+                coolant_temp: raw.ct,
+                oil_pressure: raw.op,
+                battery_volt: raw.bv,
+                engine_hours: raw.eh,
+                fuel_rate: raw.fr,
+                gps_speed: raw.gs,
+                latitude: raw.lat,
+                longitude: raw.lng,
+                gps_valid: raw.gv
+            };
         }
 
         function handleBLEData(event) {
@@ -692,19 +724,23 @@
                 line = line.trim();
                 if (line.startsWith('{') && line.endsWith('}')) {
                     try {
-                        const data = JSON.parse(line);
+                        const raw = JSON.parse(line);
                         
-                        if (data.type === "SYNC_START") {
+                        if (raw.type === "SYNC_START") {
                             isSyncingLogs = true;
                             syncedLogBuffer = [];
                             document.getElementById('sync-banner').style.display = 'block';
-                        } else if (data.type === "LOG_ROW") {
-                            syncedLogBuffer.push(data.data);
-                        } else if (data.type === "SYNC_END") {
+                            sendAck();
+                        } else if (raw.type === "LOG_ROW") {
+                            syncedLogBuffer.push(raw.data);
+                            sendAck();
+                        } else if (raw.type === "SYNC_END") {
                             isSyncingLogs = false;
                             document.getElementById('sync-banner').style.display = 'none';
+                            sendAck();
                             processSyncedLogs(syncedLogBuffer);
                         } else {
+                            const data = mapBLEKeys(raw);
                             updateDashboard(data);
                             pushTelemetryToSupabase(data);
                         }
@@ -815,6 +851,10 @@
         function updateLiveMap(lat, lng) {
             const latLng = [lat, lng];
             routeCoordinates.push(latLng);
+            // Cap at ~6 hours of 2-second data to avoid unbounded growth
+            if (routeCoordinates.length > 11000) {
+                routeCoordinates = routeCoordinates.slice(-10000);
+            }
             routePolyline.setLatLngs(routeCoordinates);
 
             if (boatMarker) {
@@ -829,9 +869,11 @@
 
         async function pushTelemetryToSupabase(payload) {
             if (!supabaseClient) return;
+            // ESP doesn't send uptime_ms in live JSON; derive from trip seconds
+            const uptime = payload.run_time_seconds != null ? payload.run_time_seconds * 1000 : null;
             try {
                 await supabaseClient.from('telemetry_logs').insert([{
-                    uptime_ms: payload.uptime_ms,
+                    uptime_ms: uptime,
                     latitude: payload.latitude,
                     longitude: payload.longitude,
                     fuel_liters: payload.fuel_liters,
@@ -866,7 +908,7 @@
                     .limit(2000);
 
                 if (error) {
-                    console.error("Error fetching historical telemetry:", error);
+                    console.error("Error fetching telemetry:", error);
                     renderDailyJourneyLogs([]);
                     return;
                 }
@@ -877,7 +919,18 @@
                     return;
                 }
 
-                routeCoordinates = data
+                // Main map: only today's route (UTC boundaries for Supabase timestamps)
+                const todayStart = new Date();
+                todayStart.setUTCHours(0, 0, 0, 0);
+                const todayEnd = new Date(todayStart);
+                todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+
+                const todayData = data.filter(row => {
+                    const rowDate = new Date(row.created_at);
+                    return rowDate >= todayStart && rowDate < todayEnd;
+                });
+
+                routeCoordinates = todayData
                     .filter(row => row.latitude && row.longitude)
                     .map(row => [row.latitude, row.longitude]);
 
@@ -885,7 +938,7 @@
                     routePolyline.setLatLngs(routeCoordinates);
                     map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
 
-                    const lastRow = data[data.length - 1];
+                    const lastRow = todayData[todayData.length - 1];
                     if (boatMarker) {
                         boatMarker.setLatLng([lastRow.latitude, lastRow.longitude]);
                     } else {
@@ -896,6 +949,7 @@
                     updateLastUpdatedTimestamp(new Date(lastRow.created_at));
                 }
 
+                // Journey logs: all historical data grouped by day
                 renderDailyJourneyLogs(data);
 
             } catch (err) {
