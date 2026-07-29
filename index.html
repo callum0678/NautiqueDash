@@ -519,9 +519,9 @@
 
         <div class="grid-container" id="telemetry-grid"></div>
 
-        <!-- Live Map Section (Moved Below Instruments) -->
+        <!-- Live Map Section (Today's Track Only) -->
         <div id="map-card">
-            <div id="map-title">Lough Erne Journey Map & Track</div>
+            <div id="map-title">Lough Erne Journey Map & Track (Today)</div>
             <div id="map"></div>
         </div>
 
@@ -648,7 +648,6 @@
                 btBtn.innerText = "Connected (BLE)";
                 btBtn.classList.add('connected');
 
-                // Trigger Offline Log Sync upon successful connect
                 triggerOfflineSync();
 
             } catch (error) {
@@ -877,181 +876,163 @@
                     return;
                 }
 
+                // Filter for TODAY's points on the main map
+                const todayMidnight = new Date();
+                todayMidnight.setHours(0, 0, 0, 0);
+
                 routeCoordinates = data
-                    .filter(row => row.latitude && row.longitude)
+                    .filter(row => row.latitude && row.longitude && new Date(row.created_at) >= todayMidnight)
                     .map(row => [row.latitude, row.longitude]);
 
                 if (routeCoordinates.length > 0) {
                     routePolyline.setLatLngs(routeCoordinates);
-                    map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
-
-                    const lastRow = data[data.length - 1];
-                    if (boatMarker) {
-                        boatMarker.setLatLng([lastRow.latitude, lastRow.longitude]);
-                    } else {
-                        boatMarker = L.circleMarker([lastRow.latitude, lastRow.longitude], {
-                            color: '#ff5500', fillColor: '#ff5500', fillOpacity: 1, radius: 8
-                        }).addTo(map);
-                    }
-                    updateLastUpdatedTimestamp(new Date(lastRow.created_at));
+                    map.fitBounds(routePolyline.getBounds(), { padding: [20, 20] });
                 }
 
                 renderDailyJourneyLogs(data);
 
             } catch (err) {
-                console.error("Supabase fetch failed:", err);
-                renderDailyJourneyLogs([]);
+                console.error("Failed loading historical journey:", err);
             }
         }
 
-        function renderDailyJourneyLogs(logs) {
+        function renderDailyJourneyLogs(data) {
             const container = document.getElementById('journey-logs-container');
-            if (!logs || logs.length === 0) {
-                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No records found.</div>';
+            container.innerHTML = '';
+
+            if (data.length === 0) {
+                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 15px;">No historical trips recorded yet.</div>';
                 return;
             }
 
-            const grouped = {};
-            logs.forEach(log => {
-                const dateKey = new Date(log.created_at).toISOString().split('T')[0];
-                if (!grouped[dateKey]) grouped[dateKey] = [];
-                grouped[dateKey].push(log);
+            const groupedByDate = {};
+
+            data.forEach(row => {
+                const dateStr = row.created_at ? row.created_at.split('T')[0] : 'Unknown Date';
+                if (!groupedByDate[dateStr]) {
+                    groupedByDate[dateStr] = [];
+                }
+                groupedByDate[dateStr].push(row);
             });
 
-            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+            const sortedDates = Object.keys(groupedByDate).sort().reverse();
 
-            container.innerHTML = sortedDates.map((dateKey, index) => {
-                const dayLogs = grouped[dateKey];
-                const tripsCount = dayLogs.length;
+            sortedDates.forEach((dateStr, idx) => {
+                const dayLogs = groupedByDate[dateStr];
+                const validPoints = dayLogs.filter(r => r.latitude && r.longitude);
+                
+                let startFuel = dayLogs[0].fuel_liters || 0;
+                let endFuel = dayLogs[dayLogs.length - 1].fuel_liters || 0;
+                let fuelUsed = Math.max(0, startFuel - endFuel).toFixed(1);
 
-                const fuelStart = dayLogs[0].fuel_liters || 80;
-                const fuelEnd = dayLogs[dayLogs.length - 1].fuel_liters || 80;
-                const fuelUsed = Math.max(0, (fuelStart - fuelEnd)).toFixed(1);
+                const card = document.createElement('div');
+                card.className = `journey-day-card ${idx === 0 ? 'active' : ''}`;
+                card.id = `day-card-${dateStr}`;
 
-                const formattedDate = new Date(dateKey).toLocaleDateString('en-GB', {
-                    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-                });
-
-                return `
-                    <div class="journey-day-card" id="day-card-${index}">
-                        <div class="journey-day-header" onclick="toggleDayAccordion(${index}, '${dateKey}')">
-                            <div class="day-info">
-                                <div class="day-date">${formattedDate}</div>
-                                <div class="day-meta">${tripsCount} GPS points recorded</div>
-                            </div>
-                            <div class="day-fuel-pill">
-                                <span>${fuelUsed > 0 ? fuelUsed + ' L Used' : 'Minimal Burn'}</span>
-                                <span class="toggle-arrow">▼</span>
-                            </div>
+                card.innerHTML = `
+                    <div class="journey-day-header" onclick="toggleDayLog('${dateStr}')">
+                        <div class="day-info">
+                            <div class="day-date">${formatDateHeader(dateStr)}</div>
+                            <div class="day-meta">${validPoints.length} GPS Points Recorded</div>
                         </div>
-                        <div class="journey-day-content" id="day-content-${index}">
-                            <div class="day-map-container" id="day-map-${index}"></div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="day-fuel-pill">${fuelUsed} L Used</div>
+                            <div class="toggle-arrow">▼</div>
                         </div>
                     </div>
+                    <div class="journey-day-content" id="day-content-${dateStr}" style="display: ${idx === 0 ? 'block' : 'none'};">
+                        <div class="day-map-container" id="map-day-${dateStr}"></div>
+                    </div>
                 `;
-            }).join('');
 
-            window.dailyLogsGrouped = grouped;
+                container.appendChild(card);
+
+                if (idx === 0) {
+                    setTimeout(() => { renderDayMap(dateStr, validPoints); }, 200);
+                }
+            });
         }
 
-        function toggleDayAccordion(index, dateKey) {
-            const card = document.getElementById(`day-card-${index}`);
-            const content = document.getElementById(`day-content-${index}`);
-            const isOpen = card.classList.contains('active');
+        function toggleDayLog(dateStr) {
+            const content = document.getElementById(`day-content-${dateStr}`);
+            const card = document.getElementById(`day-card-${dateStr}`);
+            const isVisible = content.style.display === 'block';
 
-            if (isOpen) {
-                card.classList.remove('active');
+            if (isVisible) {
                 content.style.display = 'none';
+                card.classList.remove('active');
             } else {
-                card.classList.add('active');
                 content.style.display = 'block';
+                card.classList.add('active');
 
-                setTimeout(() => {
-                    if (!dayMapInstances[index]) {
-                        const dayMap = L.map(`day-map-${index}`).setView([54.3711, -7.6580], 12);
-                        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            maxZoom: 19,
-                            className: 'dark-tiles',
-                            attribution: '&copy; OpenStreetMap'
-                        }).addTo(dayMap);
-
-                        const dayLogs = window.dailyLogsGrouped[dateKey];
-                        const coords = dayLogs
-                            .filter(l => l.latitude && l.longitude)
-                            .map(l => [l.latitude, l.longitude]);
-
-                        if (coords.length > 0) {
-                            const polyline = L.polyline(coords, {
-                                color: '#ff5500',
-                                weight: 4,
-                                opacity: 0.95
-                            }).addTo(dayMap);
-                            dayMap.fitBounds(polyline.getBounds(), { padding: [15, 15] });
-                        }
-                        dayMapInstances[index] = dayMap;
-                    } else {
-                        dayMapInstances[index].invalidateSize();
-                    }
-                }, 100);
-            }
-        }
-
-        // --- 7. REFILL & LAYOUT CONTROLS ---
-        async function sendRefillCommand() {
-            const input = document.getElementById('refill-input');
-            const liters = parseFloat(input.value);
-
-            if (isNaN(liters) || liters <= 0) {
-                alert("Please enter a valid amount of liters.");
-                return;
-            }
-
-            if (isConnected && rxCharacteristic) {
-                const encoder = new TextEncoder();
-                await rxCharacteristic.writeValue(encoder.encode(`REFILL:${liters}\n`));
-                alert(`Refill Command Sent via BLE: ${liters} Liters`);
-            }
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('telemetry_logs').insert([{ 
-                        fuel_liters: 80.0, 
-                        fuel_percent: 100.0,
-                        event_type: 'refill' 
-                    }]);
-                    input.value = '';
-                    loadHistoricalJourney();
-                } catch (err) {
-                    console.error("Failed logging refill to Supabase:", err);
+                if (!dayMapInstances[dateStr]) {
+                    setTimeout(() => {
+                        fetchAndRenderDayMap(dateStr);
+                    }, 100);
                 }
             }
         }
 
-        function updateLastUpdatedTimestamp(dateObj) {
-            if (isNaN(dateObj.getTime())) return;
-            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const dateStr = dateObj.toLocaleDateString('en-GB');
-            document.getElementById('last-updated-text').innerText = `Last updated at ${timeStr} ${dateStr}`;
-        }
+        async function fetchAndRenderDayMap(dateStr) {
+            if (!supabaseClient) return;
+            const { data } = await supabaseClient
+                .from('telemetry_logs')
+                .select('*')
+                .gte('created_at', `${dateStr}T00:00:00`)
+                .lte('created_at', `${dateStr}T23:59:59`);
 
-        function initLayoutConfig() {
-            let stored = localStorage.getItem('nautique_layout_v2');
-            if (stored) {
-                try { activeLayout = JSON.parse(stored); } catch(e) { activeLayout = []; }
-            }
-            if (!activeLayout || activeLayout.length === 0) {
-                activeLayout = Object.keys(GAUGE_REGISTRY).filter(k => GAUGE_REGISTRY[k].isDefault);
-                saveLayoutConfig();
+            if (data) {
+                const validPoints = data.filter(r => r.latitude && r.longitude);
+                renderDayMap(dateStr, validPoints);
             }
         }
 
-        function saveLayoutConfig() {
-            localStorage.setItem('nautique_layout_v2', JSON.stringify(activeLayout));
+        function renderDayMap(dateStr, points) {
+            const mapContainer = document.getElementById(`map-day-${dateStr}`);
+            if (!mapContainer || dayMapInstances[dateStr]) return;
+
+            const dayMap = L.map(`map-day-${dateStr}`, { zoomControl: false }).setView([54.3711, -7.6580], 12);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                className: 'dark-tiles',
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(dayMap);
+
+            const coords = points.map(p => [p.latitude, p.longitude]);
+            if (coords.length > 0) {
+                const dayPolyline = L.polyline(coords, {
+                    color: '#ff5500', weight: 4, opacity: 0.8
+                }).addTo(dayMap);
+                dayMap.fitBounds(dayPolyline.getBounds(), { padding: [15, 15] });
+            }
+
+            dayMapInstances[dateStr] = dayMap;
+            setTimeout(() => { dayMap.invalidateSize(); }, 300);
         }
 
-        function renderGaugeGrid() {
-            const grid = document.getElementById('telemetry-grid');
-            grid.innerHTML = '';
+        function formatDateHeader(dateStr) {
+            const options = { weekday: 'short', month: 'short', day: 'numeric' };
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-US', options);
+        }
+
+        function updateLastUpdatedTimestamp(date) {
+            const el = document.getElementById('last-updated-text');
+            if (el) {
+                el.innerText = `Last updated: ${date.toLocaleTimeString()}`;
+            }
+        }
+
+        // Initialize UI Elements & Layout
+        function initializeGrid() {
+            activeLayout = Object.keys(GAUGE_REGISTRY).filter(k => GAUGE_REGISTRY[k].isDefault);
+            renderGrid();
+            populateSelector();
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('telemetry-grid');
+            container.innerHTML = '';
 
             activeLayout.forEach(key => {
                 const meta = GAUGE_REGISTRY[key];
@@ -1059,73 +1040,94 @@
 
                 const card = document.createElement('div');
                 card.className = 'gauge-card';
-                card.setAttribute('data-key', key);
+                card.id = `card-${key}`;
 
                 let progressHtml = meta.hasProgress ? `
-                    <div class="progress-track" style="margin-top:6px;">
-                        <div id="pb-${key}" class="progress-bar" style="width: 0%"></div>
-                    </div>` : '';
+                    <div class="progress-track">
+                        <div class="progress-bar" id="pb-${key}"></div>
+                    </div>
+                ` : '';
 
                 card.innerHTML = `
                     <div class="card-label">${meta.name}</div>
-                    <div id="val-${key}" class="card-val">--</div>
-                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">Telemetry Active</div>
+                    <div class="card-val" id="val-${key}">--${meta.unit}</div>
                     ${progressHtml}
-                    <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
+                    <button class="card-delete-btn" onclick="removeGaugeNode('${key}')">✕</button>
                 `;
-                grid.appendChild(card);
-            });
 
+                container.appendChild(card);
+            });
+        }
+
+        function populateSelector() {
             const selector = document.getElementById('gauge-selector');
             selector.innerHTML = '';
             Object.keys(GAUGE_REGISTRY).forEach(key => {
                 if (!activeLayout.includes(key)) {
-                    selector.innerHTML += `<option value="${key}">${GAUGE_REGISTRY[key].name}</option>`;
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.innerText = GAUGE_REGISTRY[key].name;
+                    selector.appendChild(opt);
                 }
             });
         }
 
         function toggleEditMode() {
             isEditing = !isEditing;
+            const container = document.getElementById('telemetry-grid');
             const btn = document.getElementById('edit-layout-btn');
-            const grid = document.getElementById('telemetry-grid');
-            const addPanel = document.getElementById('add-item-box');
+            const panel = document.getElementById('add-item-box');
 
             if (isEditing) {
-                btn.innerText = "Done";
+                container.classList.add('edit-mode');
+                btn.innerText = 'Done';
                 btn.classList.add('active');
-                grid.classList.add('edit-mode');
-                addPanel.style.display = 'block';
+                panel.style.display = 'block';
             } else {
-                btn.innerText = "Edit";
+                container.classList.remove('edit-mode');
+                btn.innerText = 'Edit';
                 btn.classList.remove('active');
-                grid.classList.remove('edit-mode');
-                addPanel.style.display = 'none';
-                saveLayoutConfig();
+                panel.style.display = 'none';
             }
         }
 
         function addGaugeNode() {
             const selector = document.getElementById('gauge-selector');
-            if (selector.value) {
-                activeLayout.push(selector.value);
-                renderGaugeGrid();
-                saveLayoutConfig();
+            const key = selector.value;
+            if (key && !activeLayout.includes(key)) {
+                activeLayout.push(key);
+                renderGrid();
+                populateSelector();
             }
         }
 
-        function deleteGaugeNode(e, key) {
-            e.stopPropagation();
+        function removeGaugeNode(key) {
             activeLayout = activeLayout.filter(k => k !== key);
-            renderGaugeGrid();
-            saveLayoutConfig();
+            renderGrid();
+            populateSelector();
         }
 
-        // --- 8. INITIALIZATION ---
+        async function sendRefillCommand() {
+            const val = document.getElementById('refill-input').value;
+            if (!val || isNaN(val)) {
+                alert('Please enter valid fuel liters.');
+                return;
+            }
+
+            if (rxCharacteristic && isConnected) {
+                const encoder = new TextEncoder();
+                await rxCharacteristic.writeValue(encoder.encode(`REFILL:${val}\n`));
+                alert(`Refill logged: ${val} L`);
+                document.getElementById('refill-input').value = '';
+            } else {
+                alert('Device not connected via Bluetooth.');
+            }
+        }
+
+        // On Page Load Initialization
         window.addEventListener('DOMContentLoaded', () => {
             initMap();
-            initLayoutConfig();
-            renderGaugeGrid();
+            initializeGrid();
             loadHistoricalJourney();
         });
     </script>
