@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nelly the Nautique - Lough Erne Dashboard</title>
+    <title>Nautique Dashboard</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -484,8 +484,8 @@
 <body>
 
     <div class="dashboard">
-        <h1>Nelly the Nautique</h1>
-        <div class="subtitle">Lough Erne Telemetry Hub</div>
+        <h1>Nautique Dashboard</h1>
+        <div class="subtitle">Telemetry Hub</div>
         <div class="last-updated-header" id="last-updated-text">Last updated: --</div>
 
         <div class="bt-connection-bar">
@@ -521,15 +521,15 @@
 
         <!-- Live Map Section (Moved Below Instruments) -->
         <div id="map-card">
-            <div id="map-title">Lough Erne Journey Map & Track</div>
+            <div id="map-title">Recent Journey Map & Track</div>
             <div id="map"></div>
         </div>
 
         <div class="control-panel">
-            <div class="card-label" style="padding-left:4px;">Log Top-Off Fuel (Liters)</div>
+            <div class="card-label" style="padding-left:4px;">Log Fuel Top-off (Liters)</div>
             <div class="flex-group">
                 <input type="number" id="refill-input" step="0.1" placeholder="Liters on receipt">
-                <button type="button" class="btn-orange" onclick="sendRefillCommand()">Reset Full</button>
+                <button type="button" class="btn-orange" onclick="sendRefillCommand()">Fill-er-up!</button>
             </div>
         </div>
 
