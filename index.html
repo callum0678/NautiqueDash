@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nautique Dashboard</title>
+    <title>Nelly the Nautique - Lough Erne Dashboard</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -484,8 +484,8 @@
 <body>
 
     <div class="dashboard">
-        <h1>Nautique Dashboard</h1>
-        <div class="subtitle">Telemetry Hub</div>
+        <h1>Nelly the Nautique</h1>
+        <div class="subtitle">Lough Erne Telemetry Hub</div>
         <div class="last-updated-header" id="last-updated-text">Last updated: --</div>
 
         <div class="bt-connection-bar">
@@ -521,15 +521,15 @@
 
         <!-- Live Map Section (Moved Below Instruments) -->
         <div id="map-card">
-            <div id="map-title">Recent Journey Map & Track</div>
+            <div id="map-title">Lough Erne Journey Map & Track</div>
             <div id="map"></div>
         </div>
 
         <div class="control-panel">
-            <div class="card-label" style="padding-left:4px;">Log Fuel Top-off (Liters)</div>
+            <div class="card-label" style="padding-left:4px;">Log Top-Off Fuel (Liters)</div>
             <div class="flex-group">
                 <input type="number" id="refill-input" step="0.1" placeholder="Liters on receipt">
-                <button type="button" class="btn-orange" onclick="sendRefillCommand()">Fill-er-up!</button>
+                <button type="button" class="btn-orange" onclick="sendRefillCommand()">Reset Full</button>
             </div>
         </div>
 
@@ -572,9 +572,9 @@
         const circumference = 2 * Math.PI * 90;
 
         // --- 3. BLE HARDWARE CONFIGURATION ---
-        const SERVICE_UUID           = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-        const CHARACTERISTIC_UUID_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-        const CHARACTERISTIC_UUID_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const SERVICE_UUID           = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+        const CHARACTERISTIC_UUID_RX = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
+        const CHARACTERISTIC_UUID_TX = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
         
         let bleDevice = null;
         let rxCharacteristic = null;
@@ -809,6 +809,17 @@
                 updateLiveMap(data.latitude, data.longitude);
             }
 
+            // Persist last known fuel level to localStorage for offline viewing
+            if (data.fuel_liters !== undefined) {
+                try {
+                    localStorage.setItem('nautique_last_fuel', JSON.stringify({
+                        fuel_liters: data.fuel_liters,
+                        fuel_percent: data.fuel_percent || Math.min(100, (data.fuel_liters / 80.0) * 100),
+                        updated_at: new Date().toISOString()
+                    }));
+                } catch(e) { /* localStorage full - ignore */ }
+            }
+
             activeLayout.forEach(key => {
                 if (key === 'fuel_mgmt' && data.fuel_liters !== undefined) {
                     const pct = data.fuel_percent || Math.min(100, (data.fuel_liters / 80.0) * 100);
@@ -846,6 +857,31 @@
             if (pbEl && progressWidth) {
                 pbEl.style.width = progressWidth;
             }
+        }
+
+        function loadPersistedFuel() {
+            try {
+                const saved = localStorage.getItem('nautique_last_fuel');
+                if (!saved) return;
+                const data = JSON.parse(saved);
+                const valEl = document.getElementById('val-fuel_mgmt');
+                const subEl = document.getElementById('sub-fuel_mgmt');
+                const pbEl = document.getElementById('pb-fuel_mgmt');
+                if (!valEl) return;
+
+                const pct = data.fuel_percent || Math.min(100, (data.fuel_liters / 80.0) * 100);
+                valEl.innerText = `${pct.toFixed(0)}%`;
+                if (pbEl) pbEl.style.width = `${pct}%`;
+
+                // Show how stale the data is
+                const lastSeen = new Date(data.updated_at);
+                const hoursAgo = Math.floor((Date.now() - lastSeen.getTime()) / 3600000);
+                let timeStr;
+                if (hoursAgo < 1) timeStr = 'moments ago';
+                else if (hoursAgo < 24) timeStr = `${hoursAgo}h ago`;
+                else timeStr = `${Math.floor(hoursAgo / 24)}d ago`;
+                if (subEl) subEl.innerText = `Last known: ${data.fuel_liters.toFixed(1)} L (${timeStr})`;
+            } catch(e) { /* ignore corrupt data */ }
         }
 
         function updateLiveMap(lat, lng) {
@@ -1123,7 +1159,7 @@
                 card.innerHTML = `
                     <div class="card-label">${meta.name}</div>
                     <div id="val-${key}" class="card-val">--</div>
-                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;"> </div>
+                    <div id="sub-${key}" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">Telemetry Active</div>
                     ${progressHtml}
                     <button class="card-delete-btn" onclick="deleteGaugeNode(event, '${key}')">Delete</button>
                 `;
@@ -1180,6 +1216,7 @@
             initMap();
             initLayoutConfig();
             renderGaugeGrid();
+            loadPersistedFuel();
             loadHistoricalJourney();
         });
     </script>
